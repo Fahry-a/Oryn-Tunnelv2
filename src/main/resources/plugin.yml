@@ -7,3 +7,14 @@ api-version: '1.21.1'
 load: STARTUP
 
 authors: [Fahry-a]
+
+commands:
+  otunnel:
+    description: Oryn Tunnel management command
+    usage: /otunnel <status|start|stop|update|reload|help>
+    permission: otunnel.admin
+
+permissions:
+  otunnel.admin:
+    description: Allows use of all Oryn Tunnel commands
+    default: op

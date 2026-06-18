@@ -1,0 +1,26 @@
+# ============================================
+# Oryn Tunnel v2 Configuration
+# ============================================
+
+# Cloudflare Tunnel Token
+# Get your token from: https://dash.cloudflare.com/zerotrust/networks/tunnels
+token: ""
+
+# Auto-update cloudflared binary when new version available
+auto-update: true
+
+# Health check interval in seconds (checks if cloudflared process is running)
+health-check-interval: 10
+
+# Max auto-restart retries when cloudflared crashes (0 = no restart)
+max-retries: 5
+
+# ============================================
+# Commands:
+#   /otunnel status    - Check tunnel status
+#   /otunnel start     - Start tunnel manually
+#   /otunnel stop      - Stop tunnel manually
+#   /otunnel update    - Check and update cloudflared
+#   /otunnel reload    - Reload configuration
+#   /otunnel help      - Show help message
+# ============================================
