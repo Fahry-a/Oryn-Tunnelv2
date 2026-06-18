@@ -2,7 +2,13 @@ package net.oryn.mc.orynTunnelv2.log;
 
 import net.oryn.mc.orynTunnelv2.OrynTunnelv2;
 
+import com.github.luben.zstd.ZstdOutputStream;
+
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -61,30 +67,28 @@ public class LogManager {
             return;
         }
 
-        String archiveName = "cloudflared-" + timestamp + ".tar.zst";
+        String archiveName = "cloudflared-" + timestamp + ".zst";
         File archiveFile = new File(archiveDir, archiveName);
 
-        try {
-            ProcessBuilder pb = new ProcessBuilder(
-                "tar",
-                "--zstd",
-                "-cf", archiveFile.getAbsolutePath(),
-                "-C", logsDir.getAbsolutePath(),
-                "log.txt"
-            );
-            pb.redirectErrorStream(true);
-            Process process = pb.start();
-            int exitCode = process.waitFor();
+        try (FileInputStream fis = new FileInputStream(logFile);
+             BufferedInputStream bis = new BufferedInputStream(fis);
+             FileOutputStream fos = new FileOutputStream(archiveFile);
+             BufferedOutputStream bos = new BufferedOutputStream(fos);
+             ZstdOutputStream zstdOut = new ZstdOutputStream(bos)) {
 
-            if (exitCode == 0) {
-                if (!logFile.delete()) {
-                    plugin.getLogger().warning("Failed to delete log file after archiving");
-                }
-                plugin.getLogger().info("Log archived: " + archiveName);
-            } else {
-                plugin.getLogger().warning("Failed to archive log (exit code: " + exitCode + ")");
+            byte[] buffer = new byte[8192];
+            int len;
+            while ((len = bis.read(buffer)) > 0) {
+                zstdOut.write(buffer, 0, len);
             }
-        } catch (IOException | InterruptedException e) {
+
+            if (!logFile.delete()) {
+                plugin.getLogger().warning("Failed to delete log file after archiving");
+            }
+
+            plugin.getLogger().info("Log archived: " + archiveName);
+
+        } catch (IOException e) {
             plugin.getLogger().warning("Failed to archive log: " + e.getMessage());
         }
 

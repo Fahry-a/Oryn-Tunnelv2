@@ -1,7 +1,7 @@
 plugins {
     id("java-library")
     id("xyz.jpenilla.run-paper") version "3.0.2"
-    id("com.github.johnrengelman.shadow") version "8.1.1"
+    id("com.gradleup.shadow") version "9.4.2"
 }
 
 repositories {
@@ -11,8 +11,7 @@ repositories {
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:1.21.1-R0.1-SNAPSHOT")
-    implementation("org.apache.commons:commons-compress:1.26.1")
-    implementation("com.github.luben:zstd-jni:1.5.6-3")
+    implementation("com.github.luben:zstd-jni:1.5.7-11")
 }
 
 java {
@@ -34,8 +33,6 @@ tasks {
 
     shadowJar {
         archiveClassifier.set("")
-        relocate("org.apache.commons.compress", "net.oryn.mc.orynTunnelv2.libs.commons.compress")
-        relocate("com.github.luben.zstd", "net.oryn.mc.orynTunnelv2.libs.zstd")
     }
 
     build {
