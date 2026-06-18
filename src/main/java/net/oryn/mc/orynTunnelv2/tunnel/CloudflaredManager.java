@@ -10,8 +10,11 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
+import java.net.URI;
 import java.net.URL;
 import java.nio.file.Files;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 
@@ -23,6 +26,7 @@ public class CloudflaredManager {
     private final File binDir;
     private final File binaryFile;
     private final File versionFile;
+    private final File checksumFile;
     private final LogManager logManager;
 
     private Process cloudflaredProcess;
@@ -31,8 +35,19 @@ public class CloudflaredManager {
     private final AtomicBoolean running = new AtomicBoolean(false);
     private boolean autoRestartEnabled = true;
 
+    private long startTime;
+    private int totalRestarts;
+    private String lastError;
+
+    private DownloadCallback downloadCallback;
+
     private static final String GITHUB_API_URL = "https://api.github.com/repos/cloudflare/cloudflared/releases/latest";
     private static final String BINARY_NAME = "cloudflared";
+
+    public interface DownloadCallback {
+        void onProgress(int percent, long bytesDownloaded, long totalBytes);
+        void onComplete(boolean success);
+    }
 
     public CloudflaredManager(OrynTunnelv2 plugin, LogManager logManager) {
         this.plugin = plugin;
@@ -40,11 +55,18 @@ public class CloudflaredManager {
         this.binDir = new File(plugin.getDataFolder(), "bin");
         this.binaryFile = new File(binDir, BINARY_NAME);
         this.versionFile = new File(binDir, "version.txt");
+        this.checksumFile = new File(binDir, "checksum.txt");
         this.retryCount = 0;
+        this.startTime = 0;
+        this.totalRestarts = 0;
 
-        if (!binDir.exists()) {
-            binDir.mkdirs();
+        if (!binDir.exists() && !binDir.mkdirs()) {
+            plugin.getLogger().warning("Failed to create bin directory");
         }
+    }
+
+    public void setDownloadCallback(DownloadCallback callback) {
+        this.downloadCallback = callback;
     }
 
     public boolean isBinaryExists() {
@@ -72,7 +94,7 @@ public class CloudflaredManager {
 
     public String getLatestVersion() {
         try {
-            URL url = new URL(GITHUB_API_URL);
+            URL url = URI.create(GITHUB_API_URL).toURL();
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
             conn.setRequestProperty("Accept", "application/vnd.github.v3+json");
@@ -121,6 +143,60 @@ public class CloudflaredManager {
         return "https://github.com/cloudflare/cloudflared/releases/download/" + version + "/cloudflared-" + os + "-" + archName;
     }
 
+    private String calculateSHA256(File file) throws IOException, NoSuchAlgorithmException {
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        try (BufferedInputStream bis = new BufferedInputStream(Files.newInputStream(file.toPath()))) {
+            byte[] buffer = new byte[8192];
+            int bytesRead;
+            while ((bytesRead = bis.read(buffer)) != -1) {
+                digest.update(buffer, 0, bytesRead);
+            }
+        }
+
+        byte[] hash = digest.digest();
+        StringBuilder hexString = new StringBuilder();
+        for (byte b : hash) {
+            String hex = Integer.toHexString(0xff & b);
+            if (hex.length() == 1) {
+                hexString.append('0');
+            }
+            hexString.append(hex);
+        }
+        return hexString.toString();
+    }
+
+    private String fetchChecksumFromGitHub(String version) {
+        try {
+            String os = "linux";
+            String arch = System.getProperty("os.arch").toLowerCase();
+            String archName = arch.equals("aarch64") || arch.equals("arm64") ? "arm64" : "amd64";
+
+            String checksumUrl = "https://github.com/cloudflare/cloudflared/releases/download/" + version + "/cloudflared-" + os + "-" + archName + ".sha256";
+            URL url = URI.create(checksumUrl).toURL();
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(10000);
+            conn.setReadTimeout(10000);
+
+            if (conn.getResponseCode() != 200) {
+                return null;
+            }
+
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
+                String line = reader.readLine();
+                if (line != null) {
+                    String[] parts = line.split("\\s+");
+                    if (parts.length >= 1) {
+                        return parts[0].trim();
+                    }
+                }
+            }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.FINE, "Could not fetch checksum from GitHub", e);
+        }
+        return null;
+    }
+
     public boolean downloadBinary(String version) {
         String downloadUrl = getDownloadUrl(version);
         if (downloadUrl == null) {
@@ -131,7 +207,7 @@ public class CloudflaredManager {
         logManager.log("Starting download: " + downloadUrl);
 
         try {
-            URL url = new URL(downloadUrl);
+            URL url = URI.create(downloadUrl).toURL();
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
             conn.setConnectTimeout(30000);
@@ -139,17 +215,19 @@ public class CloudflaredManager {
             conn.setRequestProperty("User-Agent", "OrynTunnelv2/1.0");
 
             if (conn.getResponseCode() != 200) {
-                plugin.getLogger().severe("Download failed with HTTP " + conn.getResponseCode());
+                lastError = "Download failed with HTTP " + conn.getResponseCode();
+                plugin.getLogger().severe(lastError);
                 return false;
             }
 
             File tempFile = new File(binDir, BINARY_NAME + ".tmp");
+            long contentLength = conn.getContentLengthLong();
+
             try (FileOutputStream fos = new FileOutputStream(tempFile)) {
                 byte[] buffer = new byte[8192];
                 int bytesRead;
                 long totalBytes = 0;
                 int lastPercent = 0;
-                long contentLength = conn.getContentLengthLong();
 
                 try (BufferedInputStream bis = new BufferedInputStream(conn.getInputStream())) {
                     while ((bytesRead = bis.read(buffer)) != -1) {
@@ -161,43 +239,97 @@ public class CloudflaredManager {
                             if (percent >= lastPercent + 10) {
                                 lastPercent = percent;
                                 plugin.getLogger().info("Download progress: " + percent + "%");
+                                if (downloadCallback != null) {
+                                    downloadCallback.onProgress(percent, totalBytes, contentLength);
+                                }
                             }
                         }
                     }
                 }
             }
 
-            tempFile.setExecutable(true);
-            tempFile.renameTo(binaryFile);
+            String localChecksum = calculateSHA256(tempFile);
+            String remoteChecksum = fetchChecksumFromGitHub(version);
+
+            if (remoteChecksum != null && !remoteChecksum.equalsIgnoreCase(localChecksum)) {
+                tempFile.delete();
+                lastError = "Checksum mismatch! Expected: " + remoteChecksum + ", Got: " + localChecksum;
+                plugin.getLogger().severe(lastError);
+                logManager.log("Checksum verification failed: " + lastError);
+                return false;
+            }
+
+            if (remoteChecksum != null) {
+                Files.write(checksumFile.toPath(), remoteChecksum.getBytes());
+                plugin.getLogger().info("SHA256 checksum verified: " + localChecksum);
+                logManager.log("SHA256 checksum verified: " + localChecksum);
+            } else {
+                plugin.getLogger().warning("Checksum not available from GitHub, skipping verification");
+            }
+
+            if (!tempFile.setExecutable(true)) {
+                plugin.getLogger().warning("Failed to set executable permission");
+            }
+
+            if (binaryFile.exists() && !binaryFile.delete()) {
+                plugin.getLogger().warning("Failed to delete old binary");
+            }
+
+            if (!tempFile.renameTo(binaryFile)) {
+                lastError = "Failed to rename temporary file to binary";
+                plugin.getLogger().severe(lastError);
+                return false;
+            }
+
             saveLocalVersion(version);
 
             plugin.getLogger().info("Download complete: cloudflared " + version);
             logManager.log("Download complete: cloudflared " + version);
+
+            if (downloadCallback != null) {
+                downloadCallback.onComplete(true);
+            }
+            lastError = null;
             return true;
 
-        } catch (IOException e) {
-            plugin.getLogger().log(Level.SEVERE, "Failed to download cloudflared", e);
+        } catch (IOException | NoSuchAlgorithmException e) {
+            lastError = "Failed to download cloudflared: " + e.getMessage();
+            plugin.getLogger().log(Level.SEVERE, lastError, e);
+            logManager.log("Download failed: " + lastError);
+            if (downloadCallback != null) {
+                downloadCallback.onComplete(false);
+            }
             return false;
         }
     }
 
-    public boolean checkAndUpdate() {
+    public void checkAndUpdate() {
         plugin.getLogger().info("Checking for cloudflared updates...");
         String latestVersion = getLatestVersion();
 
         if (latestVersion == null) {
-            plugin.getLogger().warning("Could not fetch latest version from GitHub");
-            return false;
+            lastError = "Could not fetch latest version from GitHub";
+            plugin.getLogger().warning(lastError);
+            return;
         }
 
         String localVersion = getLocalVersion();
         if (latestVersion.equals(localVersion)) {
             plugin.getLogger().info("Cloudflared is up to date (" + localVersion + ")");
-            return true;
+            return;
         }
 
         plugin.getLogger().info("New version available: " + latestVersion + " (current: " + localVersion + ")");
-        return downloadBinary(latestVersion);
+        downloadBinary(latestVersion);
+    }
+
+    public boolean isUpdateAvailable() {
+        String latestVersion = getLatestVersion();
+        String localVersion = getLocalVersion();
+        if (latestVersion == null || localVersion == null) {
+            return false;
+        }
+        return !latestVersion.equals(localVersion);
     }
 
     public boolean ensureBinary() {
@@ -210,7 +342,8 @@ public class CloudflaredManager {
         String latestVersion = getLatestVersion();
 
         if (latestVersion == null) {
-            plugin.getLogger().severe("Could not fetch latest version from GitHub");
+            lastError = "Could not fetch latest version from GitHub";
+            plugin.getLogger().severe(lastError);
             return false;
         }
 
@@ -224,12 +357,14 @@ public class CloudflaredManager {
         }
 
         if (!isBinaryExists()) {
-            plugin.getLogger().severe("Cloudflared binary not found");
+            lastError = "Cloudflared binary not found";
+            plugin.getLogger().severe(lastError);
             return;
         }
 
-        if (token == null || token.isEmpty() || token.isBlank()) {
-            plugin.getLogger().severe("Token is not configured!");
+        if (token == null || token.isBlank()) {
+            lastError = "Token is not configured!";
+            plugin.getLogger().severe(lastError);
             return;
         }
 
@@ -245,6 +380,8 @@ public class CloudflaredManager {
             cloudflaredProcess = pb.start();
             running.set(true);
             retryCount = 0;
+            startTime = System.currentTimeMillis();
+            lastError = null;
 
             plugin.getLogger().info("Cloudflared tunnel started");
             logManager.log("Cloudflared tunnel started with PID: " + cloudflaredProcess.pid());
@@ -266,7 +403,9 @@ public class CloudflaredManager {
             logThread.start();
 
         } catch (IOException e) {
-            plugin.getLogger().log(Level.SEVERE, "Failed to start cloudflared", e);
+            lastError = "Failed to start cloudflared: " + e.getMessage();
+            plugin.getLogger().log(Level.SEVERE, lastError, e);
+            logManager.log("Failed to start cloudflared: " + e.getMessage());
             running.set(false);
         }
     }
@@ -285,6 +424,7 @@ public class CloudflaredManager {
                 if (!terminated) {
                     cloudflaredProcess.destroyForcibly();
                     plugin.getLogger().warning("Cloudflared forcefully terminated");
+                    logManager.log("Cloudflared forcefully terminated");
                 }
             } catch (InterruptedException e) {
                 cloudflaredProcess.destroyForcibly();
@@ -293,6 +433,7 @@ public class CloudflaredManager {
 
             cloudflaredProcess = null;
             running.set(false);
+            startTime = 0;
             plugin.getLogger().info("Cloudflared tunnel stopped");
             logManager.log("Cloudflared tunnel stopped");
         }
@@ -307,7 +448,8 @@ public class CloudflaredManager {
         int maxRetries = plugin.getConfigManager().getMaxRetries();
 
         if (maxRetries > 0 && retryCount >= maxRetries) {
-            plugin.getLogger().severe("Max restart retries (" + maxRetries + ") reached. Auto-restart disabled.");
+            lastError = "Max restart retries (" + maxRetries + ") reached";
+            plugin.getLogger().severe(lastError);
             logManager.log("Max restart retries reached, auto-restart disabled");
             autoRestartEnabled = false;
             running.set(false);
@@ -315,6 +457,7 @@ public class CloudflaredManager {
         }
 
         retryCount++;
+        totalRestarts++;
         plugin.getLogger().warning("Restarting cloudflared (attempt " + retryCount + "/" + maxRetries + ")");
         logManager.log("Restarting cloudflared (attempt " + retryCount + "/" + maxRetries + ")");
 
@@ -339,6 +482,47 @@ public class CloudflaredManager {
 
     public int getRetryCount() {
         return retryCount;
+    }
+
+    public int getTotalRestarts() {
+        return totalRestarts;
+    }
+
+    public long getStartTime() {
+        return startTime;
+    }
+
+    public long getUptime() {
+        if (startTime == 0) {
+            return 0;
+        }
+        return System.currentTimeMillis() - startTime;
+    }
+
+    public String getUptimeFormatted() {
+        long uptime = getUptime();
+        if (uptime == 0) {
+            return "N/A";
+        }
+
+        long seconds = uptime / 1000;
+        long minutes = seconds / 60;
+        long hours = minutes / 60;
+        long days = hours / 24;
+
+        if (days > 0) {
+            return days + "d " + (hours % 24) + "h " + (minutes % 60) + "m";
+        } else if (hours > 0) {
+            return hours + "h " + (minutes % 60) + "m " + (seconds % 60) + "s";
+        } else if (minutes > 0) {
+            return minutes + "m " + (seconds % 60) + "s";
+        } else {
+            return seconds + "s";
+        }
+    }
+
+    public String getLastError() {
+        return lastError;
     }
 
     public Process getProcess() {

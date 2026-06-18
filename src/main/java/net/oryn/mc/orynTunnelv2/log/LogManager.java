@@ -24,8 +24,8 @@ public class LogManager {
     }
 
     private void init() {
-        if (!logsDir.exists()) {
-            logsDir.mkdirs();
+        if (!logsDir.exists() && !logsDir.mkdirs()) {
+            plugin.getLogger().warning("Failed to create logs directory");
         }
         try {
             logWriter = new PrintWriter(new FileWriter(logFile, true), true);
@@ -56,8 +56,9 @@ public class LogManager {
 
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"));
         File archiveDir = new File(logsDir, "archive");
-        if (!archiveDir.exists()) {
-            archiveDir.mkdirs();
+        if (!archiveDir.exists() && !archiveDir.mkdirs()) {
+            plugin.getLogger().warning("Failed to create archive directory");
+            return;
         }
 
         String archiveName = "cloudflared-" + timestamp + ".tar.zst";
@@ -76,7 +77,9 @@ public class LogManager {
             int exitCode = process.waitFor();
 
             if (exitCode == 0) {
-                logFile.delete();
+                if (!logFile.delete()) {
+                    plugin.getLogger().warning("Failed to delete log file after archiving");
+                }
                 plugin.getLogger().info("Log archived: " + archiveName);
             } else {
                 plugin.getLogger().warning("Failed to archive log (exit code: " + exitCode + ")");
@@ -86,9 +89,5 @@ public class LogManager {
         }
 
         init();
-    }
-
-    public File getLogFile() {
-        return logFile;
     }
 }

@@ -43,7 +43,7 @@ public class TunnelHealthChecker {
                 plugin.getLogger().warning("Cloudflared is not running, attempting restart...");
 
                 String token = configManager.getToken();
-                if (token != null && !token.isEmpty() && !token.isBlank()) {
+                if (token != null && !token.isBlank()) {
                     cloudflaredManager.restartTunnel(token);
                 } else {
                     plugin.getLogger().warning("Cannot restart: token not configured");

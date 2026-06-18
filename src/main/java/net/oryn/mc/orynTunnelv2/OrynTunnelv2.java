@@ -2,6 +2,7 @@ package net.oryn.mc.orynTunnelv2;
 
 import net.oryn.mc.orynTunnelv2.command.TunnelCommand;
 import net.oryn.mc.orynTunnelv2.config.ConfigManager;
+import net.oryn.mc.orynTunnelv2.listener.PlayerJoinListener;
 import net.oryn.mc.orynTunnelv2.log.LogManager;
 import net.oryn.mc.orynTunnelv2.tunnel.CloudflaredManager;
 import net.oryn.mc.orynTunnelv2.tunnel.TunnelHealthChecker;
@@ -15,21 +16,31 @@ public final class OrynTunnelv2 extends JavaPlugin {
     private LogManager logManager;
     private CloudflaredManager cloudflaredManager;
     private TunnelHealthChecker healthChecker;
-    private TunnelCommand tunnelCommand;
 
     @Override
     public void onEnable() {
         logManager = new LogManager(this);
         configManager = new ConfigManager(this);
+
+        if (!configManager.isValid()) {
+            getLogger().warning("Config validation warnings found:");
+            for (String error : configManager.getValidationErrors()) {
+                getLogger().warning("  - " + error);
+            }
+        }
+
         cloudflaredManager = new CloudflaredManager(this, logManager);
         healthChecker = new TunnelHealthChecker(this, cloudflaredManager, configManager, logManager);
 
-        tunnelCommand = new TunnelCommand(this, cloudflaredManager, configManager, logManager, healthChecker);
+        TunnelCommand tunnelCommand = new TunnelCommand(this, cloudflaredManager, configManager, healthChecker);
         PluginCommand cmd = getCommand("otunnel");
         if (cmd != null) {
             cmd.setExecutor(tunnelCommand);
             cmd.setTabCompleter(tunnelCommand);
         }
+
+        PlayerJoinListener playerJoinListener = new PlayerJoinListener(this, cloudflaredManager);
+        getServer().getPluginManager().registerEvents(playerJoinListener, this);
 
         getLogger().info("Oryn Tunnel v2 enabled");
 
@@ -74,17 +85,5 @@ public final class OrynTunnelv2 extends JavaPlugin {
 
     public ConfigManager getConfigManager() {
         return configManager;
-    }
-
-    public LogManager getLogManager() {
-        return logManager;
-    }
-
-    public CloudflaredManager getCloudflaredManager() {
-        return cloudflaredManager;
-    }
-
-    public TunnelHealthChecker getHealthChecker() {
-        return healthChecker;
     }
 }
