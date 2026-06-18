@@ -2,6 +2,7 @@ package net.oryn.mc.orynTunnelv2.command;
 
 import net.oryn.mc.orynTunnelv2.OrynTunnelv2;
 import net.oryn.mc.orynTunnelv2.config.ConfigManager;
+import net.oryn.mc.orynTunnelv2.gui.TunnelGUI;
 import net.oryn.mc.orynTunnelv2.tunnel.CloudflaredManager;
 import net.oryn.mc.orynTunnelv2.tunnel.TunnelHealthChecker;
 
@@ -13,6 +14,7 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
+import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -23,6 +25,7 @@ public class TunnelCommand implements CommandExecutor, TabCompleter {
     private final CloudflaredManager cloudflaredManager;
     private final ConfigManager configManager;
     private final TunnelHealthChecker healthChecker;
+    private final TunnelGUI tunnelGUI;
 
     private static final String PREFIX = ChatColor.GOLD + "[OrynTunnel] " + ChatColor.RESET;
     private static final String SUCCESS = ChatColor.GREEN + "";
@@ -33,11 +36,13 @@ public class TunnelCommand implements CommandExecutor, TabCompleter {
     private static final String DIM = ChatColor.GRAY + "";
 
     public TunnelCommand(OrynTunnelv2 plugin, CloudflaredManager cloudflaredManager,
-                         ConfigManager configManager, TunnelHealthChecker healthChecker) {
+                         ConfigManager configManager, TunnelHealthChecker healthChecker,
+                         TunnelGUI tunnelGUI) {
         this.plugin = plugin;
         this.cloudflaredManager = cloudflaredManager;
         this.configManager = configManager;
         this.healthChecker = healthChecker;
+        this.tunnelGUI = tunnelGUI;
     }
 
     @Override
@@ -48,12 +53,23 @@ public class TunnelCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length == 0) {
-            showHelp(sender);
+            if (sender instanceof Player player) {
+                tunnelGUI.openMainMenu(player);
+            } else {
+                showHelp(sender);
+            }
             return true;
         }
 
         String subCommand = args[0].toLowerCase();
         switch (subCommand) {
+            case "gui":
+                if (sender instanceof Player player) {
+                    tunnelGUI.openMainMenu(player);
+                } else {
+                    sender.sendMessage(PREFIX + ERROR + "GUI is only available for players!");
+                }
+                break;
             case "status":
                 showStatus(sender);
                 break;
@@ -265,6 +281,7 @@ public class TunnelCommand implements CommandExecutor, TabCompleter {
 
     private void showHelp(CommandSender sender) {
         sender.sendMessage(HEADER + "========== Oryn Tunnel Commands ==========");
+        sender.sendMessage(INFO + "/otunnel " + DIM + "- Open GUI");
         sender.sendMessage(INFO + "/otunnel status " + DIM + "- Check tunnel status");
         sender.sendMessage(INFO + "/otunnel stats " + DIM + "- Show detailed statistics");
         sender.sendMessage(INFO + "/otunnel start " + DIM + "- Start tunnel");
@@ -290,7 +307,7 @@ public class TunnelCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length == 1) {
-            return List.of("status", "stats", "start", "stop", "restart", "update", "reload", "help");
+            return List.of("gui", "status", "stats", "start", "stop", "restart", "update", "reload", "help");
         }
 
         return Collections.emptyList();

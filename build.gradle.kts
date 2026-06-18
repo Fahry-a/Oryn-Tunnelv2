@@ -1,6 +1,7 @@
 plugins {
     id("java-library")
     id("xyz.jpenilla.run-paper") version "3.0.2"
+    id("com.github.johnrengelman.shadow") version "8.1.1"
 }
 
 repositories {
@@ -10,6 +11,8 @@ repositories {
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:1.21.1-R0.1-SNAPSHOT")
+    implementation("org.apache.commons:commons-compress:1.26.1")
+    implementation("com.github.luben:zstd-jni:1.5.6-3")
 }
 
 java {
@@ -18,9 +21,6 @@ java {
 
 tasks {
     runServer {
-        // Configure the Minecraft version for our task.
-        // This is the only required configuration besides applying the plugin.
-        // Your plugin's jar (or shadowJar if present) will be used automatically.
         minecraftVersion("1.21.1")
         jvmArgs("-Xms2G", "-Xmx2G")
     }
@@ -30,5 +30,15 @@ tasks {
         filesMatching("plugin.yml") {
             expand(props)
         }
+    }
+
+    shadowJar {
+        archiveClassifier.set("")
+        relocate("org.apache.commons.compress", "net.oryn.mc.orynTunnelv2.libs.commons.compress")
+        relocate("com.github.luben.zstd", "net.oryn.mc.orynTunnelv2.libs.zstd")
+    }
+
+    build {
+        dependsOn(shadowJar)
     }
 }

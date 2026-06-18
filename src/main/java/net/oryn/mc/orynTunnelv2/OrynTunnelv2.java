@@ -2,6 +2,8 @@ package net.oryn.mc.orynTunnelv2;
 
 import net.oryn.mc.orynTunnelv2.command.TunnelCommand;
 import net.oryn.mc.orynTunnelv2.config.ConfigManager;
+import net.oryn.mc.orynTunnelv2.gui.GUIListener;
+import net.oryn.mc.orynTunnelv2.gui.TunnelGUI;
 import net.oryn.mc.orynTunnelv2.listener.PlayerJoinListener;
 import net.oryn.mc.orynTunnelv2.log.LogManager;
 import net.oryn.mc.orynTunnelv2.tunnel.CloudflaredManager;
@@ -32,7 +34,9 @@ public final class OrynTunnelv2 extends JavaPlugin {
         cloudflaredManager = new CloudflaredManager(this, logManager);
         healthChecker = new TunnelHealthChecker(this, cloudflaredManager, configManager, logManager);
 
-        TunnelCommand tunnelCommand = new TunnelCommand(this, cloudflaredManager, configManager, healthChecker);
+        TunnelGUI tunnelGUI = new TunnelGUI(this, cloudflaredManager, configManager);
+
+        TunnelCommand tunnelCommand = new TunnelCommand(this, cloudflaredManager, configManager, healthChecker, tunnelGUI);
         PluginCommand cmd = getCommand("otunnel");
         if (cmd != null) {
             cmd.setExecutor(tunnelCommand);
@@ -41,6 +45,9 @@ public final class OrynTunnelv2 extends JavaPlugin {
 
         PlayerJoinListener playerJoinListener = new PlayerJoinListener(this, cloudflaredManager);
         getServer().getPluginManager().registerEvents(playerJoinListener, this);
+
+        GUIListener guiListener = new GUIListener(this, cloudflaredManager, configManager, healthChecker, tunnelGUI);
+        getServer().getPluginManager().registerEvents(guiListener, this);
 
         getLogger().info("Oryn Tunnel v2 enabled");
 
