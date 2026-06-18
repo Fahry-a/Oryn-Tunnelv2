@@ -1,0 +1,9 @@
+name: Oryn-Tunnelv2
+description: $description
+version: '${version}'
+
+main: net.oryn.mc.orynTunnelv2.OrynTunnelv2
+api-version: '1.21.1'
+load: STARTUP
+
+authors: [Fahry-a]
