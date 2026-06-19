@@ -29,10 +29,11 @@ public class CloudflaredManager {
     private final File checksumFile;
     private final LogManager logManager;
 
-    private Process cloudflaredProcess;
+    private volatile Process cloudflaredProcess;
     private BukkitTask restartTask;
     private int retryCount;
     private final AtomicBoolean running = new AtomicBoolean(false);
+    private final AtomicBoolean restarting = new AtomicBoolean(false);
     private boolean autoRestartEnabled = true;
 
     private long startTime;
@@ -445,26 +446,42 @@ public class CloudflaredManager {
     }
 
     public void restartTunnel(String token) {
-        int maxRetries = plugin.getConfigManager().getMaxRetries();
-
-        if (maxRetries > 0 && retryCount >= maxRetries) {
-            lastError = "Max restart retries (" + maxRetries + ") reached";
-            plugin.getLogger().severe(lastError);
-            logManager.log("Max restart retries reached, auto-restart disabled");
-            autoRestartEnabled = false;
-            running.set(false);
+        if (!restarting.compareAndSet(false, true)) {
+            plugin.getLogger().warning("Restart already in progress, skipping");
             return;
         }
 
-        retryCount++;
-        totalRestarts++;
-        plugin.getLogger().warning("Restarting cloudflared (attempt " + retryCount + "/" + maxRetries + ")");
-        logManager.log("Restarting cloudflared (attempt " + retryCount + "/" + maxRetries + ")");
+        try {
+            int maxRetries = plugin.getConfigManager().getMaxRetries();
 
-        cloudflaredProcess = null;
-        running.set(false);
+            if (maxRetries > 0 && retryCount >= maxRetries) {
+                lastError = "Max restart retries (" + maxRetries + ") reached";
+                plugin.getLogger().severe(lastError);
+                logManager.log("Max restart retries reached, auto-restart disabled");
+                autoRestartEnabled = false;
+                running.set(false);
+                return;
+            }
 
-        plugin.getServer().getScheduler().runTaskLater(plugin, () -> startTunnel(token), 20L);
+            retryCount++;
+            totalRestarts++;
+            plugin.getLogger().warning("Restarting cloudflared (attempt " + retryCount + "/" + maxRetries + ")");
+            logManager.log("Restarting cloudflared (attempt " + retryCount + "/" + maxRetries + ")");
+
+            cloudflaredProcess = null;
+            running.set(false);
+
+            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                try {
+                    startTunnel(token);
+                } finally {
+                    restarting.set(false);
+                }
+            }, 20L);
+        } catch (Exception e) {
+            restarting.set(false);
+            throw e;
+        }
     }
 
     public boolean isRunning() {
@@ -478,6 +495,7 @@ public class CloudflaredManager {
     public void resetAutoRestart() {
         autoRestartEnabled = true;
         retryCount = 0;
+        restarting.set(false);
     }
 
     public int getRetryCount() {

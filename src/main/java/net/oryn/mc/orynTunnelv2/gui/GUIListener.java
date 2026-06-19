@@ -243,6 +243,7 @@ public class GUIListener implements Listener {
                 public void onComplete(boolean success) {
                     if (success) {
                         player.sendMessage(PREFIX + ChatColor.GREEN + "Update complete!");
+                        plugin.resetUpdateNotification();
                     } else {
                         player.sendMessage(PREFIX + ChatColor.RED + "Update failed!");
                     }

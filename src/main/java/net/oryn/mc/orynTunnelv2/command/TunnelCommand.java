@@ -264,6 +264,7 @@ public class TunnelCommand implements CommandExecutor, TabCompleter {
                 public void onComplete(boolean success) {
                     if (success) {
                         sender.sendMessage(PREFIX + SUCCESS + "Update complete! Restart tunnel to use new version.");
+                        plugin.resetUpdateNotification();
                     } else {
                         sender.sendMessage(PREFIX + ERROR + "Update failed!");
                     }

@@ -18,6 +18,7 @@ public final class OrynTunnelv2 extends JavaPlugin {
     private LogManager logManager;
     private CloudflaredManager cloudflaredManager;
     private TunnelHealthChecker healthChecker;
+    private PlayerJoinListener playerJoinListener;
 
     @Override
     public void onEnable() {
@@ -43,7 +44,7 @@ public final class OrynTunnelv2 extends JavaPlugin {
             cmd.setTabCompleter(tunnelCommand);
         }
 
-        PlayerJoinListener playerJoinListener = new PlayerJoinListener(this, cloudflaredManager);
+        playerJoinListener = new PlayerJoinListener(this, cloudflaredManager);
         getServer().getPluginManager().registerEvents(playerJoinListener, this);
 
         GUIListener guiListener = new GUIListener(this, cloudflaredManager, configManager, healthChecker, tunnelGUI);
@@ -92,5 +93,11 @@ public final class OrynTunnelv2 extends JavaPlugin {
 
     public ConfigManager getConfigManager() {
         return configManager;
+    }
+
+    public void resetUpdateNotification() {
+        if (playerJoinListener != null) {
+            playerJoinListener.resetNotification();
+        }
     }
 }
