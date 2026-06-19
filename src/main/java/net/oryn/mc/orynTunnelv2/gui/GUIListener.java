@@ -3,6 +3,7 @@ package net.oryn.mc.orynTunnelv2.gui;
 import net.oryn.mc.orynTunnelv2.config.ConfigManager;
 import net.oryn.mc.orynTunnelv2.tunnel.CloudflaredManager;
 import net.oryn.mc.orynTunnelv2.tunnel.TunnelHealthChecker;
+import net.oryn.mc.orynTunnelv2.tunnel.TunnelManager;
 
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
@@ -20,17 +21,25 @@ public class GUIListener implements Listener {
     private final ConfigManager configManager;
     private final TunnelHealthChecker healthChecker;
     private final TunnelGUI tunnelGUI;
+    private final TunnelManager tunnelManager;
 
     private static final String PREFIX = ChatColor.GOLD + "[OrynTunnel] " + ChatColor.RESET;
 
     public GUIListener(JavaPlugin plugin, CloudflaredManager cloudflaredManager,
                        ConfigManager configManager, TunnelHealthChecker healthChecker,
                        TunnelGUI tunnelGUI) {
+        this(plugin, cloudflaredManager, configManager, healthChecker, tunnelGUI, null);
+    }
+
+    public GUIListener(JavaPlugin plugin, CloudflaredManager cloudflaredManager,
+                       ConfigManager configManager, TunnelHealthChecker healthChecker,
+                       TunnelGUI tunnelGUI, TunnelManager tunnelManager) {
         this.plugin = plugin;
         this.cloudflaredManager = cloudflaredManager;
         this.configManager = configManager;
         this.healthChecker = healthChecker;
         this.tunnelGUI = tunnelGUI;
+        this.tunnelManager = tunnelManager;
     }
 
     @EventHandler
@@ -160,7 +169,7 @@ public class GUIListener implements Listener {
                         }
                     }
                 });
-                plugin.getServer().getScheduler().runTaskAsynchronously(plugin, cloudflaredManager::ensureBinary);
+                plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> cloudflaredManager.ensureBinary());
                 return;
             }
 
@@ -274,7 +283,11 @@ public class GUIListener implements Listener {
 
         if (slot == 11) {
             player.closeInventory();
-            configManager.reload();
+            if (tunnelManager != null) {
+                tunnelManager.reloadConfig();
+            } else {
+                configManager.reload();
+            }
             player.sendMessage(PREFIX + ChatColor.GREEN + "Configuration reloaded!");
 
         } else if (slot == 15) {

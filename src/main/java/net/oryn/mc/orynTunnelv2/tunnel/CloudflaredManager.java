@@ -15,6 +15,7 @@ import java.nio.file.Files;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 
 import org.bukkit.plugin.java.JavaPlugin;
@@ -31,16 +32,17 @@ public class CloudflaredManager {
 
     private volatile Process cloudflaredProcess;
     private BukkitTask restartTask;
-    private int retryCount;
+    private final AtomicInteger retryCount = new AtomicInteger(0);
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicBoolean restarting = new AtomicBoolean(false);
-    private boolean autoRestartEnabled = true;
+    private volatile boolean autoRestartEnabled = true;
 
-    private long startTime;
-    private int totalRestarts;
-    private String lastError;
+    private volatile long startTime;
+    private final AtomicInteger totalRestarts = new AtomicInteger(0);
+    private volatile String lastError;
+    private volatile boolean connected = false;
 
-    private DownloadCallback downloadCallback;
+    private volatile DownloadCallback downloadCallback;
 
     private static final String GITHUB_API_URL = "https://api.github.com/repos/cloudflare/cloudflared/releases/latest";
     private static final String BINARY_NAME = "cloudflared";
@@ -57,9 +59,6 @@ public class CloudflaredManager {
         this.binaryFile = new File(binDir, BINARY_NAME);
         this.versionFile = new File(binDir, "version.txt");
         this.checksumFile = new File(binDir, "checksum.txt");
-        this.retryCount = 0;
-        this.startTime = 0;
-        this.totalRestarts = 0;
 
         if (!binDir.exists() && !binDir.mkdirs()) {
             plugin.getLogger().warning("Failed to create bin directory");
@@ -121,6 +120,9 @@ public class CloudflaredManager {
             }
             int start = tagIndex + "\"tag_name\":\"".length();
             int end = json.indexOf("\"", start);
+            if (end == -1) {
+                return null;
+            }
             return json.substring(start, end);
         } catch (Exception e) {
             plugin.getLogger().log(Level.WARNING, "Failed to fetch latest version", e);
@@ -213,7 +215,7 @@ public class CloudflaredManager {
             conn.setRequestMethod("GET");
             conn.setConnectTimeout(30000);
             conn.setReadTimeout(60000);
-            conn.setRequestProperty("User-Agent", "OrynTunnelv2/1.0");
+            conn.setRequestProperty("User-Agent", "OrynTunnelv2/1.1");
 
             if (conn.getResponseCode() != 200) {
                 lastError = "Download failed with HTTP " + conn.getResponseCode();
@@ -240,8 +242,9 @@ public class CloudflaredManager {
                             if (percent >= lastPercent + 10) {
                                 lastPercent = percent;
                                 plugin.getLogger().info("Download progress: " + percent + "%");
-                                if (downloadCallback != null) {
-                                    downloadCallback.onProgress(percent, totalBytes, contentLength);
+                                DownloadCallback cb = downloadCallback;
+                                if (cb != null) {
+                                    cb.onProgress(percent, totalBytes, contentLength);
                                 }
                             }
                         }
@@ -287,8 +290,9 @@ public class CloudflaredManager {
             plugin.getLogger().info("Download complete: cloudflared " + version);
             logManager.log("Download complete: cloudflared " + version);
 
-            if (downloadCallback != null) {
-                downloadCallback.onComplete(true);
+            DownloadCallback cb = downloadCallback;
+            if (cb != null) {
+                cb.onComplete(true);
             }
             lastError = null;
             return true;
@@ -297,31 +301,37 @@ public class CloudflaredManager {
             lastError = "Failed to download cloudflared: " + e.getMessage();
             plugin.getLogger().log(Level.SEVERE, lastError, e);
             logManager.log("Download failed: " + lastError);
-            if (downloadCallback != null) {
-                downloadCallback.onComplete(false);
+            DownloadCallback cb = downloadCallback;
+            if (cb != null) {
+                cb.onComplete(false);
             }
             return false;
         }
     }
 
     public void checkAndUpdate() {
-        plugin.getLogger().info("Checking for cloudflared updates...");
-        String latestVersion = getLatestVersion();
+        checkAndUpdate(null);
+    }
 
-        if (latestVersion == null) {
+    public void checkAndUpdate(String pinnedVersion) {
+        plugin.getLogger().info("Checking for cloudflared updates...");
+
+        String targetVersion = pinnedVersion != null ? pinnedVersion : getLatestVersion();
+
+        if (targetVersion == null) {
             lastError = "Could not fetch latest version from GitHub";
             plugin.getLogger().warning(lastError);
             return;
         }
 
         String localVersion = getLocalVersion();
-        if (latestVersion.equals(localVersion)) {
+        if (targetVersion.equals(localVersion)) {
             plugin.getLogger().info("Cloudflared is up to date (" + localVersion + ")");
             return;
         }
 
-        plugin.getLogger().info("New version available: " + latestVersion + " (current: " + localVersion + ")");
-        downloadBinary(latestVersion);
+        plugin.getLogger().info("New version available: " + targetVersion + " (current: " + localVersion + ")");
+        downloadBinary(targetVersion);
     }
 
     public boolean isUpdateAvailable() {
@@ -334,24 +344,28 @@ public class CloudflaredManager {
     }
 
     public boolean ensureBinary() {
+        return ensureBinary(null);
+    }
+
+    public boolean ensureBinary(String pinnedVersion) {
         if (isBinaryExists()) {
             plugin.getLogger().info("Cloudflared binary found");
             return true;
         }
 
         plugin.getLogger().info("Cloudflared binary not found, downloading...");
-        String latestVersion = getLatestVersion();
+        String targetVersion = pinnedVersion != null ? pinnedVersion : getLatestVersion();
 
-        if (latestVersion == null) {
+        if (targetVersion == null) {
             lastError = "Could not fetch latest version from GitHub";
             plugin.getLogger().severe(lastError);
             return false;
         }
 
-        return downloadBinary(latestVersion);
+        return downloadBinary(targetVersion);
     }
 
-    public void startTunnel(String token) {
+    public synchronized void startTunnel(String token) {
         if (running.get()) {
             plugin.getLogger().warning("Tunnel is already running");
             return;
@@ -380,19 +394,25 @@ public class CloudflaredManager {
 
             cloudflaredProcess = pb.start();
             running.set(true);
-            retryCount = 0;
+            connected = false;
+            retryCount.set(0);
             startTime = System.currentTimeMillis();
             lastError = null;
 
             plugin.getLogger().info("Cloudflared tunnel started");
             logManager.log("Cloudflared tunnel started with PID: " + cloudflaredProcess.pid());
 
+            final Process process = cloudflaredProcess;
             Thread logThread = new Thread(() -> {
                 try (BufferedReader reader = new BufferedReader(
-                        new InputStreamReader(cloudflaredProcess.getInputStream()))) {
+                        new InputStreamReader(process.getInputStream()))) {
                     String line;
                     while ((line = reader.readLine()) != null) {
                         logManager.log(line);
+                        if (!connected && line.contains("connIndex")) {
+                            connected = true;
+                            logManager.log("Tunnel connected to Cloudflare edge");
+                        }
                     }
                 } catch (IOException e) {
                     if (running.get()) {
@@ -411,7 +431,7 @@ public class CloudflaredManager {
         }
     }
 
-    public void stopTunnel() {
+    public synchronized void stopTunnel() {
         autoRestartEnabled = false;
 
         if (cloudflaredProcess != null && cloudflaredProcess.isAlive()) {
@@ -434,6 +454,7 @@ public class CloudflaredManager {
 
             cloudflaredProcess = null;
             running.set(false);
+            connected = false;
             startTime = 0;
             plugin.getLogger().info("Cloudflared tunnel stopped");
             logManager.log("Cloudflared tunnel stopped");
@@ -452,23 +473,25 @@ public class CloudflaredManager {
         }
 
         try {
+            int currentRetry = retryCount.incrementAndGet();
+            totalRestarts.incrementAndGet();
 
-            if (maxRetries > 0 && retryCount >= maxRetries) {
+            if (maxRetries > 0 && currentRetry > maxRetries) {
                 lastError = "Max restart retries (" + maxRetries + ") reached";
                 plugin.getLogger().severe(lastError);
                 logManager.log("Max restart retries reached, auto-restart disabled");
                 autoRestartEnabled = false;
                 running.set(false);
+                connected = false;
                 return;
             }
 
-            retryCount++;
-            totalRestarts++;
-            plugin.getLogger().warning("Restarting cloudflared (attempt " + retryCount + "/" + maxRetries + ")");
-            logManager.log("Restarting cloudflared (attempt " + retryCount + "/" + maxRetries + ")");
+            plugin.getLogger().warning("Restarting cloudflared (attempt " + currentRetry + "/" + maxRetries + ")");
+            logManager.log("Restarting cloudflared (attempt " + currentRetry + "/" + maxRetries + ")");
 
             cloudflaredProcess = null;
             running.set(false);
+            connected = false;
 
             plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
                 try {
@@ -487,22 +510,26 @@ public class CloudflaredManager {
         return running.get() && cloudflaredProcess != null && cloudflaredProcess.isAlive();
     }
 
+    public boolean isConnected() {
+        return connected && isRunning();
+    }
+
     public boolean isAutoRestartEnabled() {
         return autoRestartEnabled;
     }
 
     public void resetAutoRestart() {
         autoRestartEnabled = true;
-        retryCount = 0;
+        retryCount.set(0);
         restarting.set(false);
     }
 
     public int getRetryCount() {
-        return retryCount;
+        return retryCount.get();
     }
 
     public int getTotalRestarts() {
-        return totalRestarts;
+        return totalRestarts.get();
     }
 
     public long getStartTime() {

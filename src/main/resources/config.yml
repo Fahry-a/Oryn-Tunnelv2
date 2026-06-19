@@ -9,17 +9,26 @@ token: ""
 # Auto-update cloudflared binary when new version available
 auto-update: true
 
+# Pin specific cloudflared version (leave empty for latest)
+# Example: "2024.10.1"
+cloudflared-version: ""
+
 # Health check interval in seconds (checks if cloudflared process is running)
 health-check-interval: 10
 
 # Max auto-restart retries when cloudflared crashes (0 = no restart)
 max-retries: 5
 
+# Max log file size in bytes before rotation (default: 10MB)
+# Logs are compressed with zstd and archived
+log-max-size: 10485760
+
 # ============================================
 # Commands:
 #   /otunnel status    - Check tunnel status
 #   /otunnel start     - Start tunnel manually
 #   /otunnel stop      - Stop tunnel manually
+#   /otunnel restart   - Restart tunnel
 #   /otunnel update    - Check and update cloudflared
 #   /otunnel reload    - Reload configuration
 #   /otunnel help      - Show help message

@@ -8,21 +8,19 @@ import net.oryn.mc.orynTunnelv2.listener.PlayerJoinListener;
 import net.oryn.mc.orynTunnelv2.log.LogManager;
 import net.oryn.mc.orynTunnelv2.tunnel.CloudflaredManager;
 import net.oryn.mc.orynTunnelv2.tunnel.TunnelHealthChecker;
+import net.oryn.mc.orynTunnelv2.tunnel.TunnelManager;
 
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class OrynTunnelv2 extends JavaPlugin {
 
-    private ConfigManager configManager;
-    private LogManager logManager;
-    private CloudflaredManager cloudflaredManager;
-    private TunnelHealthChecker healthChecker;
+    private TunnelManager tunnelManager;
 
     @Override
     public void onEnable() {
-        logManager = new LogManager(getDataFolder(), getLogger());
-        configManager = new ConfigManager(getDataFolder(), getClass(), getLogger());
+        LogManager logManager = new LogManager(getDataFolder(), getLogger());
+        ConfigManager configManager = new ConfigManager(getDataFolder(), getClass(), getLogger());
 
         if (!configManager.isValid()) {
             getLogger().warning("Config validation warnings found:");
@@ -31,16 +29,22 @@ public final class OrynTunnelv2 extends JavaPlugin {
             }
         }
 
-        cloudflaredManager = new CloudflaredManager(this, getDataFolder(), logManager);
-        healthChecker = new TunnelHealthChecker(this, cloudflaredManager, configManager, logManager);
+        logManager.setLogMaxSize(configManager.getLogMaxSize());
+
+        tunnelManager = new TunnelManager(this, configManager, logManager);
+
+        CloudflaredManager cloudflaredManager = tunnelManager.getCloudflaredManager();
+        TunnelHealthChecker healthChecker = tunnelManager.getHealthChecker();
 
         TunnelGUI tunnelGUI = new TunnelGUI(this, cloudflaredManager, configManager);
 
-        TunnelCommand tunnelCommand = new TunnelCommand(this, cloudflaredManager, configManager, healthChecker, tunnelGUI);
+        TunnelCommand tunnelCommand = new TunnelCommand(this, tunnelManager, tunnelGUI);
         PluginCommand cmd = getCommand("otunnel");
         if (cmd != null) {
             cmd.setExecutor(tunnelCommand);
             cmd.setTabCompleter(tunnelCommand);
+        } else {
+            getLogger().warning("Failed to register /otunnel command");
         }
 
         PlayerJoinListener playerJoinListener = new PlayerJoinListener(this, cloudflaredManager);
@@ -56,41 +60,22 @@ public final class OrynTunnelv2 extends JavaPlugin {
             return;
         }
 
-        if (configManager.isAutoUpdate()) {
-            getServer().getScheduler().runTaskAsynchronously(this, () -> {
-                cloudflaredManager.checkAndUpdate();
-                startTunnelIfNeeded();
-            });
-        } else {
-            startTunnelIfNeeded();
-        }
-    }
-
-    private void startTunnelIfNeeded() {
-        getServer().getScheduler().runTask(this, () -> {
-            if (!cloudflaredManager.ensureBinary()) {
-                getLogger().severe("Could not ensure cloudflared binary. Tunnel not started.");
-                return;
-            }
-
-            String token = configManager.getToken();
-            cloudflaredManager.startTunnel(token);
-            healthChecker.start();
-        });
+        tunnelManager.startTunnelIfNeeded(true);
     }
 
     @Override
     public void onDisable() {
         getLogger().info("Oryn Tunnel v2 disabling...");
 
-        healthChecker.stop();
-        cloudflaredManager.stopTunnel();
-        logManager.archive();
+        if (tunnelManager != null) {
+            tunnelManager.stopTunnel();
+            tunnelManager.getLogManager().archive();
+        }
 
         getLogger().info("Oryn Tunnel v2 disabled");
     }
 
     public ConfigManager getConfigManager() {
-        return configManager;
+        return tunnelManager != null ? tunnelManager.getConfigManager() : null;
     }
 }

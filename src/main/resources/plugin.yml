@@ -1,5 +1,5 @@
 name: Oryn-Tunnelv2
-description: $description
+description: '${description}'
 version: '${version}'
 
 main: net.oryn.mc.orynTunnelv2.OrynTunnelv2

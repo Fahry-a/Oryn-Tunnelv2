@@ -48,6 +48,8 @@ public class TunnelHealthChecker {
                 } else {
                     plugin.getLogger().warning("Cannot restart: token not configured");
                 }
+            } else if (!cloudflaredManager.isConnected()) {
+                logManager.log("Health check: cloudflared running but not connected");
             }
         }, tickInterval, tickInterval);
 

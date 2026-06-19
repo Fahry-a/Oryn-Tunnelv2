@@ -21,6 +21,10 @@ public class ConfigManager {
     private boolean autoUpdate;
     private int healthCheckInterval;
     private int maxRetries;
+    private String cloudflaredVersion;
+    private long logMaxSize;
+
+    private String lastToken;
 
     private final List<String> validationErrors = new ArrayList<>();
 
@@ -56,12 +60,16 @@ public class ConfigManager {
         this.autoUpdate = config.getBoolean("auto-update", true);
         this.healthCheckInterval = config.getInt("health-check-interval", 10);
         this.maxRetries = config.getInt("max-retries", 5);
+        this.cloudflaredVersion = config.getString("cloudflared-version", "");
+        this.logMaxSize = config.getLong("log-max-size", 10 * 1024 * 1024);
 
         validate();
     }
 
-    public void reload() {
+    public boolean reload() {
+        String oldToken = this.token;
         load();
+        return !this.token.equals(oldToken);
     }
 
     private void validate() {
@@ -81,6 +89,11 @@ public class ConfigManager {
         } else if (maxRetries > 50) {
             validationErrors.add("max-retries must be at most 50");
             this.maxRetries = 50;
+        }
+
+        if (logMaxSize < 1024) {
+            validationErrors.add("log-max-size must be at least 1024 bytes");
+            this.logMaxSize = 10 * 1024 * 1024;
         }
 
         for (String error : validationErrors) {
@@ -116,7 +129,18 @@ public class ConfigManager {
         return maxRetries;
     }
 
+    public String getCloudflaredVersion() {
+        if (cloudflaredVersion == null || cloudflaredVersion.isBlank()) {
+            return null;
+        }
+        return cloudflaredVersion;
+    }
+
+    public long getLogMaxSize() {
+        return logMaxSize;
+    }
+
     public boolean isTokenConfigured() {
-        return token != null && !token.isEmpty() && !token.isBlank();
+        return token != null && !token.isBlank();
     }
 }

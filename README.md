@@ -7,10 +7,14 @@ Cloudflare Tunnel plugin for Minecraft servers. Automatically manages cloudflare
 - **Dual mode** — Runs as standalone plugin (`/otunnel`) or OrynPlugins module (`/oryn module tunnel`)
 - **Auto-download** — Downloads cloudflared binary automatically (Linux amd64/arm64)
 - **Auto-update** — Checks GitHub for updates and downloads new versions
+- **Version pinning** — Pin specific cloudflared version in config
 - **SHA256 verification** — Verifies downloaded binary integrity
-- **Health check** — Monitors tunnel process every 10 seconds
+- **Health check** — Monitors tunnel process + connectivity status
 - **Auto-restart** — Restarts tunnel if it crashes (max 5 retries)
+- **Tunnel connectivity** — Verifies cloudflared is actually connected to Cloudflare edge
+- **Config hot-reload** — Auto-restarts tunnel when token changes via reload
 - **GUI** — Full GUI with hover stats and confirmation dialogs
+- **Log rotation** — Size-based log rotation with zstd compression
 - **Log archiving** — Compresses logs to .zst format on server shutdown
 
 ## Requirements
@@ -42,17 +46,22 @@ Cloudflare Tunnel plugin for Minecraft servers. Automatically manages cloudflare
 
 ```yaml
 # Cloudflare Tunnel Token
-# Get from: https://dash.cloudflare.com/zerotrust/networks/tunnels
 token: ""
 
 # Auto-update cloudflared binary
 auto-update: true
+
+# Pin specific cloudflared version (leave empty for latest)
+cloudflared-version: ""
 
 # Health check interval (seconds)
 health-check-interval: 10
 
 # Max auto-restart retries
 max-retries: 5
+
+# Max log file size before rotation (bytes, default: 10MB)
+log-max-size: 10485760
 ```
 
 ### Config Location
@@ -69,7 +78,7 @@ max-retries: 5
 | Command | Description |
 |---------|-------------|
 | `/otunnel` | Open GUI |
-| `/otunnel status` | Check tunnel status |
+| `/otunnel status` | Check tunnel status + connectivity |
 | `/otunnel stats` | Show detailed statistics |
 | `/otunnel start` | Start tunnel |
 | `/otunnel stop` | Stop tunnel |
@@ -102,11 +111,11 @@ max-retries: 5
 
 Type `/otunnel` (standalone) or `/oryn module tunnel` (module) in-game to open the GUI. Hover over items to see detailed stats.
 
-- **Status** — Version, uptime, errors
+- **Status** — Version, uptime, connectivity, errors
 - **Statistics** — PID, restarts, health check status
 - **Start/Stop/Restart** — With confirmation dialogs
 - **Update** — Check and download updates
-- **Reload** — Reload configuration
+- **Reload** — Reload configuration (auto-restarts if token changed)
 
 ## Architecture
 
@@ -115,11 +124,13 @@ Type `/otunnel` (standalone) or `/oryn module tunnel` (module) in-game to open t
 ```
 Paper Server
   └── Oryn-Tunnelv2 (JavaPlugin)
-        ├── ConfigManager
-        ├── CloudflaredManager
-        ├── TunnelHealthChecker
-        ├── TunnelGUI
-        └── TunnelCommand
+        └── TunnelManager
+              ├── ConfigManager
+              ├── LogManager
+              ├── CloudflaredManager
+              ├── TunnelHealthChecker
+              ├── TunnelGUI
+              └── TunnelCommand
 ```
 
 ### Module Mode
@@ -129,11 +140,13 @@ Paper Server
   └── OrynPlugins (JavaPlugin)
         └── ModuleLoader
               └── TunnelModule (OrynModule)
-                    ├── ConfigManager
-                    ├── CloudflaredManager
-                    ├── TunnelHealthChecker
-                    ├── TunnelGUI
-                    └── TunnelCommand
+                    └── TunnelManager
+                          ├── ConfigManager
+                          ├── LogManager
+                          ├── CloudflaredManager
+                          ├── TunnelHealthChecker
+                          ├── TunnelGUI
+                          └── TunnelCommand
 ```
 
 ## Building
@@ -142,13 +155,33 @@ Paper Server
 ./gradlew build
 ```
 
-Output: `build/libs/Oryn-Tunnelv2-1.0.jar`
+Output: `build/libs/Oryn-Tunnelv2-1.1.jar`
 
 ## Dependencies
 
 - [Paper API](https://papermc.io/) 1.21.1+
-- [OrynPlugins](https://github.com/Fahry-a/OrynPlugins) 1.0.0 (for module mode)
+- [OrynPlugins](https://github.com/Fahry-a/OrynPlugins) 1.0.1 (for module mode)
 - [zstd-jni](https://github.com/luben/zstd-jni) 1.5.7-11
+
+## Changelog
+
+### v1.1
+- Fixed thread safety: `AtomicInteger` for counters, `volatile` for shared fields
+- Fixed `stopTunnel()` synchronized to prevent concurrent calls
+- Fixed player online check before sending async messages
+- Deduplicated `onCommand`/`onModuleCommand` code
+- Added `TunnelManager` shared class for standalone + module modes
+- Added tunnel connectivity check (`isConnected()`)
+- Added config hot-reload with auto-restart on token change
+- Added binary version pinning (`cloudflared-version` config)
+- Added size-based log rotation (`log-max-size` config)
+- Added `downloadCallback` thread safety (capture reference before use)
+- Fixed `restartTunnel()` counter increment after success verification
+- Fixed `plugin.yml` description placeholder
+- Removed `resetNotification()` dead code dependency
+
+### v1.0
+- Initial release
 
 ## License
 

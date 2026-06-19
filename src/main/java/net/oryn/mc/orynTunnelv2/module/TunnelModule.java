@@ -10,6 +10,7 @@ import net.oryn.mc.orynTunnelv2.listener.PlayerJoinListener;
 import net.oryn.mc.orynTunnelv2.log.LogManager;
 import net.oryn.mc.orynTunnelv2.tunnel.CloudflaredManager;
 import net.oryn.mc.orynTunnelv2.tunnel.TunnelHealthChecker;
+import net.oryn.mc.orynTunnelv2.tunnel.TunnelManager;
 
 import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -20,11 +21,7 @@ public class TunnelModule implements OrynModule {
 
     private ModuleContext context;
     private JavaPlugin hostPlugin;
-    private ConfigManager configManager;
-    private LogManager logManager;
-    private CloudflaredManager cloudflaredManager;
-    private TunnelHealthChecker healthChecker;
-    private TunnelCommand tunnelCommand;
+    private TunnelManager tunnelManager;
 
     @Override
     public String getName() {
@@ -33,7 +30,7 @@ public class TunnelModule implements OrynModule {
 
     @Override
     public String getVersion() {
-        return "1.0";
+        return "1.1";
     }
 
     @Override
@@ -51,21 +48,26 @@ public class TunnelModule implements OrynModule {
         this.context = context;
         this.hostPlugin = context.getHostPlugin();
 
-        logManager = new LogManager(context.getModuleDataFolder(), context.getLogger());
-        configManager = new ConfigManager(context.getModuleDataFolder(), TunnelModule.class, context.getLogger());
+        ConfigManager configManager = new ConfigManager(
+            context.getModuleDataFolder(),
+            TunnelModule.class,
+            context.getLogger()
+        );
 
-        if (!configManager.isValid()) {
-            context.getLogger().warning("Config validation warnings found:");
-            for (String error : configManager.getValidationErrors()) {
-                context.getLogger().warning("  - " + error);
-            }
-        }
+        LogManager logManager = new LogManager(
+            context.getModuleDataFolder(),
+            context.getLogger(),
+            configManager.getLogMaxSize()
+        );
 
-        cloudflaredManager = new CloudflaredManager(hostPlugin, context.getModuleDataFolder(), logManager);
-        healthChecker = new TunnelHealthChecker(hostPlugin, cloudflaredManager, configManager, logManager);
+        tunnelManager = new TunnelManager(hostPlugin, configManager, logManager);
+
+        CloudflaredManager cloudflaredManager = tunnelManager.getCloudflaredManager();
+        TunnelHealthChecker healthChecker = tunnelManager.getHealthChecker();
 
         TunnelGUI tunnelGUI = new TunnelGUI(hostPlugin, cloudflaredManager, configManager);
-        tunnelCommand = new TunnelCommand(hostPlugin, cloudflaredManager, configManager, healthChecker, tunnelGUI);
+
+        TunnelCommand tunnelCommand = new TunnelCommand(hostPlugin, tunnelManager, tunnelGUI, "/oryn module tunnel help");
 
         PlayerJoinListener playerJoinListener = new PlayerJoinListener(hostPlugin, cloudflaredManager);
         hostPlugin.getServer().getPluginManager().registerEvents(playerJoinListener, hostPlugin);
@@ -79,54 +81,37 @@ public class TunnelModule implements OrynModule {
 
     @Override
     public void onEnable() {
-        if (!configManager.isTokenConfigured()) {
+        if (!tunnelManager.getConfigManager().isTokenConfigured()) {
             context.getLogger().warning("Token not configured! Use /oryn module tunnel or edit config.yml");
             return;
         }
 
-        if (configManager.isAutoUpdate()) {
-            hostPlugin.getServer().getScheduler().runTaskAsynchronously(hostPlugin, () -> {
-                cloudflaredManager.checkAndUpdate();
-                startTunnelIfNeeded();
-            });
-        } else {
-            startTunnelIfNeeded();
-        }
-
+        tunnelManager.startTunnelIfNeeded(true);
         context.getLogger().info("Tunnel module enabled");
-    }
-
-    private void startTunnelIfNeeded() {
-        hostPlugin.getServer().getScheduler().runTask(hostPlugin, () -> {
-            if (!cloudflaredManager.ensureBinary()) {
-                context.getLogger().severe("Could not ensure cloudflared binary. Tunnel not started.");
-                return;
-            }
-
-            String token = configManager.getToken();
-            cloudflaredManager.startTunnel(token);
-            healthChecker.start();
-        });
     }
 
     @Override
     public void onDisable() {
         context.getLogger().info("Tunnel module disabling...");
 
-        healthChecker.stop();
-        cloudflaredManager.stopTunnel();
-        logManager.archive();
+        tunnelManager.stopTunnel();
+        tunnelManager.getLogManager().archive();
 
         context.getLogger().info("Tunnel module disabled");
     }
 
     @Override
     public boolean onCommand(CommandSender sender, String label, String[] args) {
-        return tunnelCommand.onModuleCommand(sender, label, args);
+        return tunnelManager.getCloudflaredManager() != null
+            ? new TunnelCommand(hostPlugin, tunnelManager,
+                new TunnelGUI(hostPlugin, tunnelManager.getCloudflaredManager(), tunnelManager.getConfigManager()),
+                "/oryn module tunnel help")
+                .onModuleCommand(sender, label, args)
+            : false;
     }
 
     @Override
     public List<String> onTabComplete(CommandSender sender, String label, String[] args) {
-        return tunnelCommand.onModuleTabComplete(sender, label, args);
+        return List.of();
     }
 }
