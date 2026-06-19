@@ -7,10 +7,12 @@ plugins {
 repositories {
     mavenCentral()
     maven("https://repo.papermc.io/repository/maven-public/")
+    maven("https://maven.oryn.my.id")
 }
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:1.21.1-R0.1-SNAPSHOT")
+    compileOnly("net.oryn.mc:orynplugins:1.0.0")
     implementation("com.github.luben:zstd-jni:1.5.7-11")
 }
 
@@ -25,9 +27,17 @@ tasks {
     }
 
     processResources {
-        val props = mapOf("version" to version , "description" to project.description )
+        val props = mapOf("version" to version, "description" to project.description)
         filesMatching("plugin.yml") {
             expand(props)
+        }
+    }
+
+    jar {
+        manifest {
+            attributes(
+                "Main-Class" to "net.oryn.mc.orynTunnelv2.module.TunnelModule"
+            )
         }
     }
 

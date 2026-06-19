@@ -1,7 +1,5 @@
 package net.oryn.mc.orynTunnelv2.log;
 
-import net.oryn.mc.orynTunnelv2.OrynTunnelv2;
-
 import com.github.luben.zstd.ZstdOutputStream;
 
 import java.io.BufferedInputStream;
@@ -14,29 +12,30 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.logging.Logger;
 
 public class LogManager {
 
-    private final OrynTunnelv2 plugin;
+    private final Logger logger;
     private final File logsDir;
     private final File logFile;
     private PrintWriter logWriter;
 
-    public LogManager(OrynTunnelv2 plugin) {
-        this.plugin = plugin;
-        this.logsDir = new File(plugin.getDataFolder(), "logs");
+    public LogManager(File dataFolder, Logger logger) {
+        this.logger = logger;
+        this.logsDir = new File(dataFolder, "logs");
         this.logFile = new File(logsDir, "log.txt");
         init();
     }
 
     private void init() {
         if (!logsDir.exists() && !logsDir.mkdirs()) {
-            plugin.getLogger().warning("Failed to create logs directory");
+            logger.warning("Failed to create logs directory");
         }
         try {
             logWriter = new PrintWriter(new FileWriter(logFile, true), true);
         } catch (IOException e) {
-            plugin.getLogger().severe("Failed to create log file: " + e.getMessage());
+            logger.severe("Failed to create log file: " + e.getMessage());
         }
     }
 
@@ -63,7 +62,7 @@ public class LogManager {
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"));
         File archiveDir = new File(logsDir, "archive");
         if (!archiveDir.exists() && !archiveDir.mkdirs()) {
-            plugin.getLogger().warning("Failed to create archive directory");
+            logger.warning("Failed to create archive directory");
             return;
         }
 
@@ -83,13 +82,13 @@ public class LogManager {
             }
 
             if (!logFile.delete()) {
-                plugin.getLogger().warning("Failed to delete log file after archiving");
+                logger.warning("Failed to delete log file after archiving");
             }
 
-            plugin.getLogger().info("Log archived: " + archiveName);
+            logger.info("Log archived: " + archiveName);
 
         } catch (IOException e) {
-            plugin.getLogger().warning("Failed to archive log: " + e.getMessage());
+            logger.warning("Failed to archive log: " + e.getMessage());
         }
 
         init();

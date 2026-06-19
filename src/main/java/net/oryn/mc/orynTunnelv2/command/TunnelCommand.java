@@ -1,6 +1,5 @@
 package net.oryn.mc.orynTunnelv2.command;
 
-import net.oryn.mc.orynTunnelv2.OrynTunnelv2;
 import net.oryn.mc.orynTunnelv2.config.ConfigManager;
 import net.oryn.mc.orynTunnelv2.gui.TunnelGUI;
 import net.oryn.mc.orynTunnelv2.tunnel.CloudflaredManager;
@@ -15,13 +14,14 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 @SuppressWarnings("deprecation")
 public class TunnelCommand implements CommandExecutor, TabCompleter {
 
-    private final OrynTunnelv2 plugin;
+    private final JavaPlugin plugin;
     private final CloudflaredManager cloudflaredManager;
     private final ConfigManager configManager;
     private final TunnelHealthChecker healthChecker;
@@ -35,7 +35,7 @@ public class TunnelCommand implements CommandExecutor, TabCompleter {
     private static final String HEADER = ChatColor.GOLD + "";
     private static final String DIM = ChatColor.GRAY + "";
 
-    public TunnelCommand(OrynTunnelv2 plugin, CloudflaredManager cloudflaredManager,
+    public TunnelCommand(JavaPlugin plugin, CloudflaredManager cloudflaredManager,
                          ConfigManager configManager, TunnelHealthChecker healthChecker,
                          TunnelGUI tunnelGUI) {
         this.plugin = plugin;
@@ -264,7 +264,6 @@ public class TunnelCommand implements CommandExecutor, TabCompleter {
                 public void onComplete(boolean success) {
                     if (success) {
                         sender.sendMessage(PREFIX + SUCCESS + "Update complete! Restart tunnel to use new version.");
-                        plugin.resetUpdateNotification();
                     } else {
                         sender.sendMessage(PREFIX + ERROR + "Update failed!");
                     }
@@ -303,6 +302,74 @@ public class TunnelCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public @NotNull List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
+        if (!sender.hasPermission("otunnel.admin")) {
+            return Collections.emptyList();
+        }
+
+        if (args.length == 1) {
+            return List.of("gui", "status", "stats", "start", "stop", "restart", "update", "reload", "help");
+        }
+
+        return Collections.emptyList();
+    }
+
+    public boolean onModuleCommand(CommandSender sender, String label, String[] args) {
+        if (!sender.hasPermission("otunnel.admin")) {
+            sender.sendMessage(PREFIX + ERROR + "You don't have permission to use this command!");
+            return true;
+        }
+
+        if (args.length == 0) {
+            if (sender instanceof Player player) {
+                tunnelGUI.openMainMenu(player);
+            } else {
+                showHelp(sender);
+            }
+            return true;
+        }
+
+        String subCommand = args[0].toLowerCase();
+        switch (subCommand) {
+            case "gui":
+                if (sender instanceof Player player) {
+                    tunnelGUI.openMainMenu(player);
+                } else {
+                    sender.sendMessage(PREFIX + ERROR + "GUI is only available for players!");
+                }
+                break;
+            case "status":
+                showStatus(sender);
+                break;
+            case "stats":
+                showStats(sender);
+                break;
+            case "start":
+                startTunnel(sender);
+                break;
+            case "stop":
+                stopTunnel(sender);
+                break;
+            case "restart":
+                restartTunnel(sender);
+                break;
+            case "update":
+                checkUpdate(sender);
+                break;
+            case "reload":
+                reloadConfig(sender);
+                break;
+            case "help":
+                showHelp(sender);
+                break;
+            default:
+                sender.sendMessage(PREFIX + ERROR + "Unknown subcommand. Use /oryn module tunnel help");
+                break;
+        }
+
+        return true;
+    }
+
+    public List<String> onModuleTabComplete(CommandSender sender, String label, String[] args) {
         if (!sender.hasPermission("otunnel.admin")) {
             return Collections.emptyList();
         }

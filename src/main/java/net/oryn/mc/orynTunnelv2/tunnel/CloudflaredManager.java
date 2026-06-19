@@ -1,6 +1,5 @@
 package net.oryn.mc.orynTunnelv2.tunnel;
 
-import net.oryn.mc.orynTunnelv2.OrynTunnelv2;
 import net.oryn.mc.orynTunnelv2.log.LogManager;
 
 import java.io.BufferedInputStream;
@@ -18,11 +17,12 @@ import java.security.NoSuchAlgorithmException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 
+import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 
 public class CloudflaredManager {
 
-    private final OrynTunnelv2 plugin;
+    private final JavaPlugin plugin;
     private final File binDir;
     private final File binaryFile;
     private final File versionFile;
@@ -50,10 +50,10 @@ public class CloudflaredManager {
         void onComplete(boolean success);
     }
 
-    public CloudflaredManager(OrynTunnelv2 plugin, LogManager logManager) {
+    public CloudflaredManager(JavaPlugin plugin, File dataFolder, LogManager logManager) {
         this.plugin = plugin;
         this.logManager = logManager;
-        this.binDir = new File(plugin.getDataFolder(), "bin");
+        this.binDir = new File(dataFolder, "bin");
         this.binaryFile = new File(binDir, BINARY_NAME);
         this.versionFile = new File(binDir, "version.txt");
         this.checksumFile = new File(binDir, "checksum.txt");
@@ -445,14 +445,13 @@ public class CloudflaredManager {
         }
     }
 
-    public void restartTunnel(String token) {
+    public void restartTunnel(String token, int maxRetries) {
         if (!restarting.compareAndSet(false, true)) {
             plugin.getLogger().warning("Restart already in progress, skipping");
             return;
         }
 
         try {
-            int maxRetries = plugin.getConfigManager().getMaxRetries();
 
             if (maxRetries > 0 && retryCount >= maxRetries) {
                 lastError = "Max restart retries (" + maxRetries + ") reached";

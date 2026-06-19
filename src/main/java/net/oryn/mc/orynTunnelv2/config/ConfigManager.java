@@ -1,14 +1,22 @@
 package net.oryn.mc.orynTunnelv2.config;
 
-import net.oryn.mc.orynTunnelv2.OrynTunnelv2;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 
 public class ConfigManager {
 
-    private final OrynTunnelv2 plugin;
+    private final File dataFolder;
+    private final Class<?> resourceSource;
+    private final Logger logger;
+    private FileConfiguration config;
     private String token;
     private boolean autoUpdate;
     private int healthCheckInterval;
@@ -16,15 +24,33 @@ public class ConfigManager {
 
     private final List<String> validationErrors = new ArrayList<>();
 
-    public ConfigManager(OrynTunnelv2 plugin) {
-        this.plugin = plugin;
+    public ConfigManager(File dataFolder, Class<?> resourceSource, Logger logger) {
+        this.dataFolder = dataFolder;
+        this.resourceSource = resourceSource;
+        this.logger = logger;
         load();
     }
 
     public void load() {
-        plugin.saveDefaultConfig();
-        plugin.reloadConfig();
-        FileConfiguration config = plugin.getConfig();
+        if (!dataFolder.exists()) {
+            dataFolder.mkdirs();
+        }
+
+        File configFile = new File(dataFolder, "config.yml");
+
+        if (!configFile.exists()) {
+            try (InputStream in = resourceSource.getResourceAsStream("/config.yml")) {
+                if (in != null) {
+                    Files.copy(in, configFile.toPath());
+                } else {
+                    logger.warning("config.yml not found in module resources");
+                }
+            } catch (IOException e) {
+                logger.warning("Failed to save default config: " + e.getMessage());
+            }
+        }
+
+        config = YamlConfiguration.loadConfiguration(configFile);
 
         this.token = config.getString("token", "");
         this.autoUpdate = config.getBoolean("auto-update", true);
@@ -58,7 +84,7 @@ public class ConfigManager {
         }
 
         for (String error : validationErrors) {
-            plugin.getLogger().warning("Config validation: " + error);
+            logger.warning("Config validation: " + error);
         }
     }
 
@@ -68,6 +94,10 @@ public class ConfigManager {
 
     public List<String> getValidationErrors() {
         return new ArrayList<>(validationErrors);
+    }
+
+    public FileConfiguration getConfig() {
+        return config;
     }
 
     public String getToken() {

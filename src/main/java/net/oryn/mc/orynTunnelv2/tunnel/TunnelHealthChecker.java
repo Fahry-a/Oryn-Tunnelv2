@@ -1,14 +1,14 @@
 package net.oryn.mc.orynTunnelv2.tunnel;
 
-import net.oryn.mc.orynTunnelv2.OrynTunnelv2;
 import net.oryn.mc.orynTunnelv2.config.ConfigManager;
 import net.oryn.mc.orynTunnelv2.log.LogManager;
 
+import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 
 public class TunnelHealthChecker {
 
-    private final OrynTunnelv2 plugin;
+    private final JavaPlugin plugin;
     private final CloudflaredManager cloudflaredManager;
     private final ConfigManager configManager;
     private final LogManager logManager;
@@ -16,7 +16,7 @@ public class TunnelHealthChecker {
     private BukkitTask healthCheckTask;
     private boolean enabled = false;
 
-    public TunnelHealthChecker(OrynTunnelv2 plugin, CloudflaredManager cloudflaredManager,
+    public TunnelHealthChecker(JavaPlugin plugin, CloudflaredManager cloudflaredManager,
                                 ConfigManager configManager, LogManager logManager) {
         this.plugin = plugin;
         this.cloudflaredManager = cloudflaredManager;
@@ -44,7 +44,7 @@ public class TunnelHealthChecker {
 
                 String token = configManager.getToken();
                 if (token != null && !token.isBlank()) {
-                    cloudflaredManager.restartTunnel(token);
+                    cloudflaredManager.restartTunnel(token, configManager.getMaxRetries());
                 } else {
                     plugin.getLogger().warning("Cannot restart: token not configured");
                 }

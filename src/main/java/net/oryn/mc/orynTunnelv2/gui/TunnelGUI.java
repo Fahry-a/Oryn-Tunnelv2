@@ -1,6 +1,5 @@
 package net.oryn.mc.orynTunnelv2.gui;
 
-import net.oryn.mc.orynTunnelv2.OrynTunnelv2;
 import net.oryn.mc.orynTunnelv2.config.ConfigManager;
 import net.oryn.mc.orynTunnelv2.tunnel.CloudflaredManager;
 
@@ -11,6 +10,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -18,7 +18,7 @@ import java.util.List;
 
 public class TunnelGUI {
 
-    private final OrynTunnelv2 plugin;
+    private final JavaPlugin plugin;
     private final CloudflaredManager cloudflaredManager;
     private final ConfigManager configManager;
 
@@ -43,7 +43,7 @@ public class TunnelGUI {
     public static final String RELOAD_CONFIRM_TITLE = TITLE_PREFIX + "Confirm Reload";
     public static final String HELP_TITLE = TITLE_PREFIX + "Help & Commands";
 
-    public TunnelGUI(OrynTunnelv2 plugin, CloudflaredManager cloudflaredManager, ConfigManager configManager) {
+    public TunnelGUI(JavaPlugin plugin, CloudflaredManager cloudflaredManager, ConfigManager configManager) {
         this.plugin = plugin;
         this.cloudflaredManager = cloudflaredManager;
         this.configManager = configManager;

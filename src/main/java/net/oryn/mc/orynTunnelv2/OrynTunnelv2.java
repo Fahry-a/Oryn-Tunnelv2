@@ -18,12 +18,11 @@ public final class OrynTunnelv2 extends JavaPlugin {
     private LogManager logManager;
     private CloudflaredManager cloudflaredManager;
     private TunnelHealthChecker healthChecker;
-    private PlayerJoinListener playerJoinListener;
 
     @Override
     public void onEnable() {
-        logManager = new LogManager(this);
-        configManager = new ConfigManager(this);
+        logManager = new LogManager(getDataFolder(), getLogger());
+        configManager = new ConfigManager(getDataFolder(), getClass(), getLogger());
 
         if (!configManager.isValid()) {
             getLogger().warning("Config validation warnings found:");
@@ -32,7 +31,7 @@ public final class OrynTunnelv2 extends JavaPlugin {
             }
         }
 
-        cloudflaredManager = new CloudflaredManager(this, logManager);
+        cloudflaredManager = new CloudflaredManager(this, getDataFolder(), logManager);
         healthChecker = new TunnelHealthChecker(this, cloudflaredManager, configManager, logManager);
 
         TunnelGUI tunnelGUI = new TunnelGUI(this, cloudflaredManager, configManager);
@@ -44,7 +43,7 @@ public final class OrynTunnelv2 extends JavaPlugin {
             cmd.setTabCompleter(tunnelCommand);
         }
 
-        playerJoinListener = new PlayerJoinListener(this, cloudflaredManager);
+        PlayerJoinListener playerJoinListener = new PlayerJoinListener(this, cloudflaredManager);
         getServer().getPluginManager().registerEvents(playerJoinListener, this);
 
         GUIListener guiListener = new GUIListener(this, cloudflaredManager, configManager, healthChecker, tunnelGUI);
@@ -93,11 +92,5 @@ public final class OrynTunnelv2 extends JavaPlugin {
 
     public ConfigManager getConfigManager() {
         return configManager;
-    }
-
-    public void resetUpdateNotification() {
-        if (playerJoinListener != null) {
-            playerJoinListener.resetNotification();
-        }
     }
 }

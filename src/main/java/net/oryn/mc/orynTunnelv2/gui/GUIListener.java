@@ -1,6 +1,5 @@
 package net.oryn.mc.orynTunnelv2.gui;
 
-import net.oryn.mc.orynTunnelv2.OrynTunnelv2;
 import net.oryn.mc.orynTunnelv2.config.ConfigManager;
 import net.oryn.mc.orynTunnelv2.tunnel.CloudflaredManager;
 import net.oryn.mc.orynTunnelv2.tunnel.TunnelHealthChecker;
@@ -12,10 +11,11 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.java.JavaPlugin;
 
 public class GUIListener implements Listener {
 
-    private final OrynTunnelv2 plugin;
+    private final JavaPlugin plugin;
     private final CloudflaredManager cloudflaredManager;
     private final ConfigManager configManager;
     private final TunnelHealthChecker healthChecker;
@@ -23,7 +23,7 @@ public class GUIListener implements Listener {
 
     private static final String PREFIX = ChatColor.GOLD + "[OrynTunnel] " + ChatColor.RESET;
 
-    public GUIListener(OrynTunnelv2 plugin, CloudflaredManager cloudflaredManager,
+    public GUIListener(JavaPlugin plugin, CloudflaredManager cloudflaredManager,
                        ConfigManager configManager, TunnelHealthChecker healthChecker,
                        TunnelGUI tunnelGUI) {
         this.plugin = plugin;
@@ -243,7 +243,6 @@ public class GUIListener implements Listener {
                 public void onComplete(boolean success) {
                     if (success) {
                         player.sendMessage(PREFIX + ChatColor.GREEN + "Update complete!");
-                        plugin.resetUpdateNotification();
                     } else {
                         player.sendMessage(PREFIX + ChatColor.RED + "Update failed!");
                     }
