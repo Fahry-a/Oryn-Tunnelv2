@@ -42,7 +42,12 @@ public class TunnelModule implements OrynModule {
     }
 
     @Override
-    public void onLoad(ModuleContext context) {
+    public String getAuthor() {
+        return "Fahry-a";
+    }
+
+    @Override
+    public boolean onLoad(ModuleContext context) {
         this.context = context;
         this.hostPlugin = context.getHostPlugin();
 
@@ -69,6 +74,7 @@ public class TunnelModule implements OrynModule {
         hostPlugin.getServer().getPluginManager().registerEvents(guiListener, hostPlugin);
 
         context.getLogger().info("Tunnel module loaded");
+        return true;
     }
 
     @Override
