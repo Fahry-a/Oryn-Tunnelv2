@@ -38,6 +38,10 @@ public class TunnelManager {
 
     private void startTunnelOnMain() {
         plugin.getServer().getScheduler().runTask(plugin, () -> {
+            if (cloudflaredManager.isRunning()) {
+                return;
+            }
+
             if (!cloudflaredManager.ensureBinary(configManager.getCloudflaredVersion())) {
                 plugin.getLogger().severe("Could not ensure cloudflared binary. Tunnel not started.");
                 return;

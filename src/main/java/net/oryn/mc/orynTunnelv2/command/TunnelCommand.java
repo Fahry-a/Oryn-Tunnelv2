@@ -59,14 +59,14 @@ public class TunnelCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
-        return handleCommand(sender, args, true);
+        return handleCommand(sender, args);
     }
 
     public boolean onModuleCommand(CommandSender sender, String label, String[] args) {
-        return handleCommand(sender, args, false);
+        return handleCommand(sender, args);
     }
 
-    private boolean handleCommand(CommandSender sender, String[] args, boolean isStandalone) {
+    private boolean handleCommand(CommandSender sender, String[] args) {
         if (!sender.hasPermission("otunnel.admin")) {
             sender.sendMessage(PREFIX + ERROR + "You don't have permission to use this command!");
             return true;
@@ -357,7 +357,11 @@ public class TunnelCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length == 1) {
-            return List.of("gui", "status", "stats", "start", "stop", "restart", "update", "reload", "help");
+            List<String> subcommands = List.of("gui", "status", "stats", "start", "stop", "restart", "update", "reload", "help");
+            String input = args[0].toLowerCase();
+            return subcommands.stream()
+                .filter(cmd -> cmd.startsWith(input))
+                .toList();
         }
 
         return Collections.emptyList();

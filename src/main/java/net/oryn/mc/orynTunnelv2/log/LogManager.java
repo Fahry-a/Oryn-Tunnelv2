@@ -20,7 +20,7 @@ public class LogManager {
     private final File logsDir;
     private final File logFile;
     private PrintWriter logWriter;
-    private long logMaxSize;
+    private volatile long logMaxSize;
     private long currentSize;
 
     private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -50,7 +50,7 @@ public class LogManager {
         }
     }
 
-    public void setLogMaxSize(long maxBytes) {
+    public synchronized void setLogMaxSize(long maxBytes) {
         this.logMaxSize = maxBytes;
     }
 

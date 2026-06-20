@@ -2,6 +2,8 @@ package net.oryn.mc.orynTunnelv2.tunnel;
 
 import net.oryn.mc.orynTunnelv2.log.LogManager;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.File;
@@ -113,17 +115,8 @@ public class CloudflaredManager {
                 }
             }
 
-            String json = response.toString();
-            int tagIndex = json.indexOf("\"tag_name\":\"");
-            if (tagIndex == -1) {
-                return null;
-            }
-            int start = tagIndex + "\"tag_name\":\"".length();
-            int end = json.indexOf("\"", start);
-            if (end == -1) {
-                return null;
-            }
-            return json.substring(start, end);
+            JsonObject json = JsonParser.parseString(response.toString()).getAsJsonObject();
+            return json.has("tag_name") ? json.get("tag_name").getAsString() : null;
         } catch (Exception e) {
             plugin.getLogger().log(Level.WARNING, "Failed to fetch latest version", e);
             return null;
@@ -206,6 +199,7 @@ public class CloudflaredManager {
             return false;
         }
 
+        final DownloadCallback cb = downloadCallback;
         plugin.getLogger().info("Downloading cloudflared " + version + "...");
         logManager.log("Starting download: " + downloadUrl);
 
@@ -242,7 +236,6 @@ public class CloudflaredManager {
                             if (percent >= lastPercent + 10) {
                                 lastPercent = percent;
                                 plugin.getLogger().info("Download progress: " + percent + "%");
-                                DownloadCallback cb = downloadCallback;
                                 if (cb != null) {
                                     cb.onProgress(percent, totalBytes, contentLength);
                                 }
@@ -290,7 +283,6 @@ public class CloudflaredManager {
             plugin.getLogger().info("Download complete: cloudflared " + version);
             logManager.log("Download complete: cloudflared " + version);
 
-            DownloadCallback cb = downloadCallback;
             if (cb != null) {
                 cb.onComplete(true);
             }
@@ -301,7 +293,6 @@ public class CloudflaredManager {
             lastError = "Failed to download cloudflared: " + e.getMessage();
             plugin.getLogger().log(Level.SEVERE, lastError, e);
             logManager.log("Download failed: " + lastError);
-            DownloadCallback cb = downloadCallback;
             if (cb != null) {
                 cb.onComplete(false);
             }

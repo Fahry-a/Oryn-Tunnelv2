@@ -152,7 +152,7 @@ public class GUIListener implements Listener {
                 cloudflaredManager.setDownloadCallback(new CloudflaredManager.DownloadCallback() {
                     @Override
                     public void onProgress(int percent, long bytesDownloaded, long totalBytes) {
-                        player.sendMessage(PREFIX + ChatColor.AQUA + "Download: " + percent + "%");
+                        sendSafe(player, PREFIX + ChatColor.AQUA + "Download: " + percent + "%");
                     }
 
                     @Override
@@ -162,10 +162,10 @@ public class GUIListener implements Listener {
                                 cloudflaredManager.resetAutoRestart();
                                 cloudflaredManager.startTunnel(token);
                                 healthChecker.start();
-                                player.sendMessage(PREFIX + ChatColor.GREEN + "Tunnel started!");
+                                sendSafe(player, PREFIX + ChatColor.GREEN + "Tunnel started!");
                             });
                         } else {
-                            player.sendMessage(PREFIX + ChatColor.RED + "Failed to download cloudflared!");
+                            sendSafe(player, PREFIX + ChatColor.RED + "Failed to download cloudflared!");
                         }
                     }
                 });
@@ -245,15 +245,15 @@ public class GUIListener implements Listener {
             cloudflaredManager.setDownloadCallback(new CloudflaredManager.DownloadCallback() {
                 @Override
                 public void onProgress(int percent, long bytesDownloaded, long totalBytes) {
-                    player.sendMessage(PREFIX + ChatColor.AQUA + "Download: " + percent + "%");
+                    sendSafe(player, PREFIX + ChatColor.AQUA + "Download: " + percent + "%");
                 }
 
                 @Override
                 public void onComplete(boolean success) {
                     if (success) {
-                        player.sendMessage(PREFIX + ChatColor.GREEN + "Update complete!");
+                        sendSafe(player, PREFIX + ChatColor.GREEN + "Update complete!");
                     } else {
-                        player.sendMessage(PREFIX + ChatColor.RED + "Update failed!");
+                        sendSafe(player, PREFIX + ChatColor.RED + "Update failed!");
                     }
                 }
             });
@@ -263,16 +263,16 @@ public class GUIListener implements Listener {
                 String latestVersion = cloudflaredManager.getLatestVersion();
 
                 if (latestVersion == null) {
-                    player.sendMessage(PREFIX + ChatColor.RED + "Could not fetch latest version");
+                    sendSafe(player, PREFIX + ChatColor.RED + "Could not fetch latest version");
                     return;
                 }
 
                 if (latestVersion.equals(currentVersion)) {
-                    player.sendMessage(PREFIX + ChatColor.GREEN + "Cloudflared is up to date (" + currentVersion + ")");
+                    sendSafe(player, PREFIX + ChatColor.GREEN + "Cloudflared is up to date (" + currentVersion + ")");
                     return;
                 }
 
-                player.sendMessage(PREFIX + ChatColor.AQUA + "New version: " + latestVersion + " (current: " + currentVersion + ")");
+                sendSafe(player, PREFIX + ChatColor.AQUA + "New version: " + latestVersion + " (current: " + currentVersion + ")");
                 cloudflaredManager.downloadBinary(latestVersion);
             });
         }
@@ -301,4 +301,15 @@ public class GUIListener implements Listener {
             tunnelGUI.openMainMenu(player);
         }
     }
+
+    private void sendSafe(Player player, String message) {
+        if (player.isOnline()) {
+            plugin.getServer().getScheduler().runTask(plugin, () -> {
+                if (player.isOnline()) {
+                    player.sendMessage(message);
+                }
+            });
+        }
+    }
+
 }

@@ -46,7 +46,4 @@ public class PlayerJoinListener implements Listener {
         });
     }
 
-    public void resetNotification() {
-        updateNotificationSent = false;
-    }
 }

@@ -14,14 +14,19 @@ import net.oryn.mc.orynTunnelv2.tunnel.TunnelManager;
 
 import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.List;
 
 public class TunnelModule implements OrynModule {
 
+    private static final String VERSION = "1.1";
+
     private ModuleContext context;
     private JavaPlugin hostPlugin;
     private TunnelManager tunnelManager;
+    private TunnelCommand tunnelCommand;
+    private TunnelGUI tunnelGUI;
 
     @Override
     public String getName() {
@@ -30,7 +35,7 @@ public class TunnelModule implements OrynModule {
 
     @Override
     public String getVersion() {
-        return "1.1";
+        return VERSION;
     }
 
     @Override
@@ -65,9 +70,9 @@ public class TunnelModule implements OrynModule {
         CloudflaredManager cloudflaredManager = tunnelManager.getCloudflaredManager();
         TunnelHealthChecker healthChecker = tunnelManager.getHealthChecker();
 
-        TunnelGUI tunnelGUI = new TunnelGUI(hostPlugin, cloudflaredManager, configManager);
+        tunnelGUI = new TunnelGUI(hostPlugin, cloudflaredManager, configManager);
 
-        TunnelCommand tunnelCommand = new TunnelCommand(hostPlugin, tunnelManager, tunnelGUI, "/oryn module tunnel help");
+        tunnelCommand = new TunnelCommand(hostPlugin, tunnelManager, tunnelGUI, "/oryn module tunnel help");
 
         PlayerJoinListener playerJoinListener = new PlayerJoinListener(hostPlugin, cloudflaredManager);
         hostPlugin.getServer().getPluginManager().registerEvents(playerJoinListener, hostPlugin);
@@ -102,16 +107,11 @@ public class TunnelModule implements OrynModule {
 
     @Override
     public boolean onCommand(CommandSender sender, String label, String[] args) {
-        return tunnelManager.getCloudflaredManager() != null
-            ? new TunnelCommand(hostPlugin, tunnelManager,
-                new TunnelGUI(hostPlugin, tunnelManager.getCloudflaredManager(), tunnelManager.getConfigManager()),
-                "/oryn module tunnel help")
-                .onModuleCommand(sender, label, args)
-            : false;
+        return tunnelCommand != null ? tunnelCommand.onModuleCommand(sender, label, args) : false;
     }
 
     @Override
     public List<String> onTabComplete(CommandSender sender, String label, String[] args) {
-        return List.of();
+        return tunnelCommand != null ? tunnelCommand.onModuleTabComplete(sender, label, args) : List.of();
     }
 }
