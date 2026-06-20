@@ -94,4 +94,9 @@ tasks {
     build {
         dependsOn(shadowJar)
     }
+
+    withType<PublishToMavenRepository> {
+        dependsOn("jar")
+        dependsOn("shadowJar")
+    }
 }
