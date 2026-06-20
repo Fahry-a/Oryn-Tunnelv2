@@ -18,3 +18,21 @@ permissions:
   otunnel.admin:
     description: Allows use of all Oryn Tunnel commands
     default: op
+  otunnel.status:
+    description: Allows checking tunnel status
+    default: op
+  otunnel.start:
+    description: Allows starting the tunnel
+    default: op
+  otunnel.stop:
+    description: Allows stopping the tunnel
+    default: op
+  otunnel.update:
+    description: Allows updating cloudflared binary
+    default: op
+  otunnel.reload:
+    description: Allows reloading configuration
+    default: op
+  otunnel.gui:
+    description: Allows opening the tunnel GUI
+    default: op

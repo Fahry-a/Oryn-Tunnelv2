@@ -13,7 +13,7 @@ repositories {
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:1.21.1-R0.1-SNAPSHOT")
-    compileOnly("net.oryn.mc:orynplugins:1.0.1")
+    compileOnly("net.oryn.mc:orynplugins:1.2.0")
     implementation("com.github.luben:zstd-jni:1.5.7-11")
 }
 
@@ -82,7 +82,8 @@ tasks {
     jar {
         manifest {
             attributes(
-                "Main-Class" to "net.oryn.mc.orynTunnelv2.module.TunnelModule"
+                "Main-Class" to "net.oryn.mc.orynTunnelv2.module.TunnelModule",
+                "Module-Name" to "tunnel"
             )
         }
     }

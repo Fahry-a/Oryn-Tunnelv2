@@ -283,12 +283,17 @@ public class GUIListener implements Listener {
 
         if (slot == 11) {
             player.closeInventory();
-            if (tunnelManager != null) {
-                tunnelManager.reloadConfig();
-            } else {
-                configManager.reload();
+            try {
+                if (tunnelManager != null) {
+                    tunnelManager.reloadConfig();
+                } else {
+                    configManager.reload();
+                }
+                player.sendMessage(PREFIX + ChatColor.GREEN + "Configuration reloaded!");
+            } catch (Exception e) {
+                player.sendMessage(PREFIX + ChatColor.RED + "Failed to reload configuration: " + e.getMessage());
+                plugin.getLogger().warning("Config reload failed: " + e.getMessage());
             }
-            player.sendMessage(PREFIX + ChatColor.GREEN + "Configuration reloaded!");
 
         } else if (slot == 15) {
             player.closeInventory();

@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
+import java.util.function.Function;
 
 public class ConfigManager {
 
@@ -27,6 +28,8 @@ public class ConfigManager {
     private String lastToken;
 
     private final List<String> validationErrors = new ArrayList<>();
+    private Function<FileConfiguration, Boolean> validator;
+    private Runnable reloadCallback;
 
     public ConfigManager(File dataFolder, Class<?> resourceSource, Logger logger) {
         this.dataFolder = dataFolder;
@@ -66,15 +69,18 @@ public class ConfigManager {
         validate();
     }
 
-    public boolean reload() {
-        String oldToken = this.token;
-        load();
-        return !this.token.equals(oldToken);
+    public void setValidator(Function<FileConfiguration, Boolean> validator) {
+        this.validator = validator;
     }
 
-    private void validate() {
+    public void onReload(Runnable callback) {
+        this.reloadCallback = callback;
+    }
+
+    public boolean validate() {
         validationErrors.clear();
 
+        // Built-in validation
         if (healthCheckInterval < 1) {
             validationErrors.add("health-check-interval must be at least 1 second");
             this.healthCheckInterval = 10;
@@ -96,9 +102,39 @@ public class ConfigManager {
             this.logMaxSize = 10 * 1024 * 1024;
         }
 
+        // Custom validator
+        if (validator != null) {
+            try {
+                Boolean result = validator.apply(config);
+                if (result != null && !result) {
+                    validationErrors.add("Custom validation failed");
+                }
+            } catch (Exception e) {
+                validationErrors.add("Validator error: " + e.getMessage());
+            }
+        }
+
         for (String error : validationErrors) {
             logger.warning("Config validation: " + error);
         }
+
+        return validationErrors.isEmpty();
+    }
+
+    public boolean reload() {
+        String oldToken = this.token;
+        load();
+
+        // Execute reload callback if registered
+        if (reloadCallback != null) {
+            try {
+                reloadCallback.run();
+            } catch (Exception e) {
+                logger.warning("Reload callback error: " + e.getMessage());
+            }
+        }
+
+        return !this.token.equals(oldToken);
     }
 
     public boolean isValid() {

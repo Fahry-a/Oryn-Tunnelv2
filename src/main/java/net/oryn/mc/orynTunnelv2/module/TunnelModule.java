@@ -1,6 +1,7 @@
 package net.oryn.mc.orynTunnelv2.module;
 
 import net.oryn.mc.orynPlugins.module.ModuleContext;
+import net.oryn.mc.orynPlugins.module.ModuleInfo;
 import net.oryn.mc.orynPlugins.module.OrynModule;
 import net.oryn.mc.orynTunnelv2.command.TunnelCommand;
 import net.oryn.mc.orynTunnelv2.config.ConfigManager;
@@ -14,39 +15,24 @@ import net.oryn.mc.orynTunnelv2.tunnel.TunnelManager;
 
 import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.List;
 
+@ModuleInfo(
+    name = "tunnel",
+    version = "1.2.0",
+    description = "Cloudflare Tunnel plugin - manages cloudflared binary and tunnel connections",
+    author = "Fahry-a"
+)
 public class TunnelModule implements OrynModule {
-
-    private static final String VERSION = "1.1";
 
     private ModuleContext context;
     private JavaPlugin hostPlugin;
     private TunnelManager tunnelManager;
     private TunnelCommand tunnelCommand;
     private TunnelGUI tunnelGUI;
-
-    @Override
-    public String getName() {
-        return "tunnel";
-    }
-
-    @Override
-    public String getVersion() {
-        return VERSION;
-    }
-
-    @Override
-    public String getDescription() {
-        return "Cloudflare Tunnel plugin";
-    }
-
-    @Override
-    public String getAuthor() {
-        return "Fahry-a";
-    }
+    private PlayerJoinListener playerJoinListener;
+    private GUIListener guiListener;
 
     @Override
     public boolean onLoad(ModuleContext context) {
@@ -74,11 +60,12 @@ public class TunnelModule implements OrynModule {
 
         tunnelCommand = new TunnelCommand(hostPlugin, tunnelManager, tunnelGUI, "/oryn module tunnel help");
 
-        PlayerJoinListener playerJoinListener = new PlayerJoinListener(hostPlugin, cloudflaredManager);
-        hostPlugin.getServer().getPluginManager().registerEvents(playerJoinListener, hostPlugin);
+        // Register event listeners - auto-unregistered on disable
+        playerJoinListener = new PlayerJoinListener(hostPlugin, cloudflaredManager);
+        context.registerEvents(playerJoinListener);
 
-        GUIListener guiListener = new GUIListener(hostPlugin, cloudflaredManager, configManager, healthChecker, tunnelGUI);
-        hostPlugin.getServer().getPluginManager().registerEvents(guiListener, hostPlugin);
+        guiListener = new GUIListener(hostPlugin, cloudflaredManager, configManager, healthChecker, tunnelGUI, tunnelManager);
+        context.registerEvents(guiListener);
 
         context.getLogger().info("Tunnel module loaded");
         return true;
@@ -103,6 +90,13 @@ public class TunnelModule implements OrynModule {
         tunnelManager.getLogManager().archive();
 
         context.getLogger().info("Tunnel module disabled");
+    }
+
+    @Override
+    public void onReload() {
+        context.getLogger().info("Reloading tunnel configuration...");
+        tunnelManager.reloadConfig();
+        context.getLogger().info("Tunnel configuration reloaded");
     }
 
     @Override

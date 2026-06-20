@@ -155,15 +155,25 @@ Paper Server
 ./gradlew build
 ```
 
-Output: `build/libs/Oryn-Tunnelv2-1.1.jar`
+Output: `build/libs/Oryn-Tunnelv2-1.2.0.jar`
 
 ## Dependencies
 
 - [Paper API](https://papermc.io/) 1.21.1+
-- [OrynPlugins](https://github.com/Fahry-a/OrynPlugins) 1.0.1 (for module mode)
+- [OrynPlugins](https://github.com/Fahry-a/OrynPlugins) 1.2.0 (for module mode)
 - [zstd-jni](https://github.com/luben/zstd-jni) 1.5.7-11
 
 ## Changelog
+
+### v1.2.0
+- Updated TunnelModule to use `@ModuleInfo` annotation (MODULE-DEVELOPMENT.md compliance)
+- Added `Module-Name` attribute to MANIFEST.MF for faster module detection
+- Added `onReload()` method for proper module reload handling
+- Improved ConfigManager with validator pattern and reload callback support
+- Fixed duplicate import in TunnelModule.java
+- Added error handling for GUI reload operations
+- Improved event listener registration with auto-unregister on disable
+- Updated to follow OrynPlugins Module Development Guide best practices
 
 ### v1.1
 - Fixed thread safety: `AtomicInteger` for counters, `volatile` for shared fields
