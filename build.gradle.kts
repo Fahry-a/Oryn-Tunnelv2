@@ -8,7 +8,7 @@ plugins {
 repositories {
     mavenCentral()
     maven("https://repo.papermc.io/repository/maven-public/")
-    maven("https://maven.oryn.my.id")
+    maven("https://maven.oryn.my.id/releases")
 }
 
 dependencies {
@@ -22,46 +22,22 @@ java {
 }
 
 publishing {
+    repositories {
+        maven {
+            name = "orynRepo"
+            url = uri("https://maven.oryn.my.id/releases")
+            credentials(PasswordCredentials::class)
+            authentication {
+                create<BasicAuthentication>("basic")
+            }
+        }
+    }
     publications {
         create<MavenPublication>("maven") {
             groupId = project.group.toString()
             artifactId = "oryntunnelv2"
             version = project.version.toString()
-
             artifact(tasks.shadowJar)
-
-            pom {
-                name.set("Oryn-Tunnelv2")
-                description.set("A Cloudflare Tunnel Plugin For Tunneling Web To Cloudflare")
-                url.set("https://github.com/Fahry-a/Oryn-Tunnelv2")
-
-                licenses {
-                    license {
-                        name.set("MIT License")
-                        url.set("https://opensource.org/licenses/MIT")
-                    }
-                }
-
-                developers {
-                    developer {
-                        id.set("Fahry-a")
-                        name.set("Fahry-a")
-                    }
-                }
-
-                scm {
-                    connection.set("scm:git:git://github.com/Fahry-a/Oryn-Tunnelv2.git")
-                    developerConnection.set("scm:git:ssh://github.com/Fahry-a/Oryn-Tunnelv2.git")
-                    url.set("https://github.com/Fahry-a/Oryn-Tunnelv2")
-                }
-            }
-        }
-    }
-
-    repositories {
-        maven {
-            name = "LocalRepo"
-            url = uri(layout.buildDirectory.dir("repo"))
         }
     }
 }
