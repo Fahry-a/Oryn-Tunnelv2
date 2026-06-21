@@ -1,0 +1,34 @@
+[versions]
+# Core
+java = "21"
+
+# Minecraft / Paper
+paper-api = "1.21.1-R0.1-SNAPSHOT"
+minecraft = "1.21.1"
+
+# OrynPlugins (module mode dependency)
+orynplugins = "1.2.1"
+
+# Dependencies
+commons-compress = "1.27.1"
+
+# Gradle plugins
+shadow = "9.4.2"
+run-paper = "3.0.2"
+
+[libraries]
+# Paper API (compile-only, provided by server at runtime)
+paper-api = { group = "io.papermc.paper", name = "paper-api", version.ref = "paper-api" }
+
+# OrynPlugins (compile-only, provided by OrynPlugins at runtime in module mode)
+orynplugins = { group = "net.oryn.mc", name = "orynplugins", version.ref = "orynplugins" }
+
+# Apache Commons Compress (bundled via Shadow — for tar.gz log archiving)
+commons-compress = { group = "org.apache.commons", name = "commons-compress", version.ref = "commons-compress" }
+
+[plugins]
+# Shadow JAR — fat JAR packaging
+shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
+
+# run-paper — local dev server
+run-paper = { id = "xyz.jpenilla.run-paper", version.ref = "run-paper" }

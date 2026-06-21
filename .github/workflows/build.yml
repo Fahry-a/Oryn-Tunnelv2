@@ -26,15 +26,29 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
       - name: Build
-        run: ./gradlew shadowJar
+        run: ./gradlew build
+
+      - name: Verify JAR was produced
+        run: |
+          JAR_PATH="build/libs/Oryn-Tunnelv2-*.jar"
+          if ! ls $JAR_PATH 1>/dev/null 2>&1; then
+            echo "ERROR: No JAR file found in build/libs/"
+            exit 1
+          fi
+          echo "Built JARs:"
+          ls -lh $JAR_PATH
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Oryn-Tunnelv2
-          path: build/libs/*.jar
+          name: Oryn-Tunnelv2-${{ github.sha }}
+          path: build/libs/Oryn-Tunnelv2-*.jar
+          retention-days: 7
+          if-no-files-found: error
 
   release:
     needs: build
@@ -42,20 +56,11 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
         with:
-          java-version: '21'
-          distribution: 'temurin'
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Build
-        run: ./gradlew shadowJar
+          name: Oryn-Tunnelv2-${{ github.sha }}
+          path: build/libs/
 
       - name: Create Release
         uses: softprops/action-gh-release@v2

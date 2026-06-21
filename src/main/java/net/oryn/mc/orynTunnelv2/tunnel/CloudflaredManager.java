@@ -18,6 +18,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 
 import org.bukkit.plugin.java.JavaPlugin;
@@ -44,7 +45,7 @@ public class CloudflaredManager {
     private volatile String lastError;
     private volatile boolean connected = false;
 
-    private volatile DownloadCallback downloadCallback;
+    private final AtomicReference<DownloadCallback> downloadCallback = new AtomicReference<>();
 
     private static final String GITHUB_API_URL = "https://api.github.com/repos/cloudflare/cloudflared/releases/latest";
     private static final String BINARY_NAME = "cloudflared";
@@ -65,10 +66,18 @@ public class CloudflaredManager {
         if (!binDir.exists() && !binDir.mkdirs()) {
             plugin.getLogger().warning("Failed to create bin directory");
         }
+
+        // Register a JVM shutdown hook to ensure cloudflared is killed on server stop
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            if (cloudflaredProcess != null && cloudflaredProcess.isAlive()) {
+                plugin.getLogger().info("Shutdown hook: killing cloudflared process (PID: " + cloudflaredProcess.pid() + ")");
+                cloudflaredProcess.destroyForcibly();
+            }
+        }));
     }
 
     public void setDownloadCallback(DownloadCallback callback) {
-        this.downloadCallback = callback;
+        this.downloadCallback.set(callback);
     }
 
     public boolean isBinaryExists() {
@@ -199,7 +208,8 @@ public class CloudflaredManager {
             return false;
         }
 
-        final DownloadCallback cb = downloadCallback;
+        // Atomically capture and clear the callback to prevent race conditions
+        final DownloadCallback cb = downloadCallback.getAndSet(null);
         plugin.getLogger().info("Downloading cloudflared " + version + "...");
         logManager.log("Starting download: " + downloadUrl);
 

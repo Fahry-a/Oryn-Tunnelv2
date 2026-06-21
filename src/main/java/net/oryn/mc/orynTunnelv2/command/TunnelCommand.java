@@ -1,5 +1,8 @@
 package net.oryn.mc.orynTunnelv2.command;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextColor;
 import net.oryn.mc.orynTunnelv2.config.ConfigManager;
 import net.oryn.mc.orynTunnelv2.gui.TunnelGUI;
 import net.oryn.mc.orynTunnelv2.tunnel.CloudflaredManager;
@@ -9,7 +12,6 @@ import net.oryn.mc.orynTunnelv2.tunnel.TunnelManager;
 import java.util.Collections;
 import java.util.List;
 
-import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -18,7 +20,10 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 
-@SuppressWarnings("deprecation")
+/**
+ * Handles /otunnel commands for tunnel management.
+ * Uses Adventure Component API for modern text rendering.
+ */
 public class TunnelCommand implements CommandExecutor, TabCompleter {
 
     private final JavaPlugin plugin;
@@ -26,13 +31,41 @@ public class TunnelCommand implements CommandExecutor, TabCompleter {
     private final TunnelGUI tunnelGUI;
     private final String defaultHelpPrefix;
 
-    private static final String PREFIX = ChatColor.GOLD + "[OrynTunnel] " + ChatColor.RESET;
-    private static final String SUCCESS = ChatColor.GREEN + "";
-    private static final String WARNING = ChatColor.YELLOW + "";
-    private static final String ERROR = ChatColor.RED + "";
-    private static final String INFO = ChatColor.AQUA + "";
-    private static final String HEADER = ChatColor.GOLD + "";
-    private static final String DIM = ChatColor.GRAY + "";
+    private static final TextColor GOLD = NamedTextColor.GOLD;
+    private static final TextColor GREEN = NamedTextColor.GREEN;
+    private static final TextColor RED = NamedTextColor.RED;
+    private static final TextColor YELLOW = NamedTextColor.YELLOW;
+    private static final TextColor AQUA = NamedTextColor.AQUA;
+    private static final TextColor GRAY = NamedTextColor.GRAY;
+    private static final TextColor WHITE = NamedTextColor.WHITE;
+
+    private static Component prefix() {
+        return Component.text("[OrynTunnel] ", GOLD);
+    }
+
+    private static Component success(String text) {
+        return Component.text(text, GREEN);
+    }
+
+    private static Component warning(String text) {
+        return Component.text(text, YELLOW);
+    }
+
+    private static Component error(String text) {
+        return Component.text(text, RED);
+    }
+
+    private static Component info(String text) {
+        return Component.text(text, AQUA);
+    }
+
+    private static Component header(String text) {
+        return Component.text(text, GOLD);
+    }
+
+    private static Component dim(String text) {
+        return Component.text(text, GRAY);
+    }
 
     public TunnelCommand(JavaPlugin plugin, TunnelManager tunnelManager, TunnelGUI tunnelGUI) {
         this(plugin, tunnelManager, tunnelGUI, "/otunnel help");
@@ -68,7 +101,7 @@ public class TunnelCommand implements CommandExecutor, TabCompleter {
 
     private boolean handleCommand(CommandSender sender, String[] args) {
         if (!sender.hasPermission("otunnel.admin")) {
-            sender.sendMessage(PREFIX + ERROR + "You don't have permission to use this command!");
+            sender.sendMessage(prefix().append(error("You don't have permission to use this command!")));
             return true;
         }
 
@@ -87,7 +120,7 @@ public class TunnelCommand implements CommandExecutor, TabCompleter {
                 if (sender instanceof Player player) {
                     tunnelGUI.openMainMenu(player);
                 } else {
-                    sender.sendMessage(PREFIX + ERROR + "GUI is only available for players!");
+                    sender.sendMessage(prefix().append(error("GUI is only available for players!")));
                 }
                 break;
             case "status":
@@ -115,7 +148,7 @@ public class TunnelCommand implements CommandExecutor, TabCompleter {
                 showHelp(sender);
                 break;
             default:
-                sender.sendMessage(PREFIX + ERROR + "Unknown subcommand. Use " + defaultHelpPrefix);
+                sender.sendMessage(prefix().append(error("Unknown subcommand. Use " + defaultHelpPrefix)));
                 break;
         }
 
@@ -123,101 +156,108 @@ public class TunnelCommand implements CommandExecutor, TabCompleter {
     }
 
     private void showStatus(CommandSender sender) {
-        sender.sendMessage(HEADER + "========== Oryn Tunnel Status ==========");
+        sender.sendMessage(header("========== Oryn Tunnel Status =========="));
 
         CloudflaredManager cm = cloudflaredManager();
         String localVersion = cm.getLocalVersion();
-        sender.sendMessage(INFO + "Cloudflared Version: " + ChatColor.WHITE + (localVersion != null ? localVersion : "Not installed"));
+        sender.sendMessage(info("Cloudflared Version: ").append(Component.text(localVersion != null ? localVersion : "Not installed", WHITE)));
 
         boolean binaryExists = cm.isBinaryExists();
-        sender.sendMessage(INFO + "Binary: " + (binaryExists ? SUCCESS + "Found" : ERROR + "Not found"));
+        sender.sendMessage(info("Binary: ").append(binaryExists ? success("Found") : error("Not found")));
 
         boolean tunnelRunning = cm.isRunning();
-        sender.sendMessage(INFO + "Tunnel: " + (tunnelRunning ? SUCCESS + "Running" : ERROR + "Stopped"));
+        sender.sendMessage(info("Tunnel: ").append(tunnelRunning ? success("Running") : error("Stopped")));
 
         if (tunnelRunning) {
             boolean tunnelConnected = cm.isConnected();
-            sender.sendMessage(INFO + "Connected: " + (tunnelConnected ? SUCCESS + "Yes" : WARNING + "Waiting..."));
-            sender.sendMessage(INFO + "Uptime: " + ChatColor.WHITE + cm.getUptimeFormatted());
+            sender.sendMessage(info("Connected: ").append(tunnelConnected ? success("Yes") : warning("Waiting...")));
+            sender.sendMessage(info("Uptime: ").append(Component.text(cm.getUptimeFormatted(), WHITE)));
+            Process process = cm.getProcess();
+            if (process != null) {
+                sender.sendMessage(info("PID: ").append(Component.text(process.pid(), WHITE)));
+            }
         }
 
         boolean tokenConfigured = configManager().isTokenConfigured();
-        sender.sendMessage(INFO + "Token: " + (tokenConfigured ? SUCCESS + "Configured" : ERROR + "Not configured"));
+        sender.sendMessage(info("Token: ").append(tokenConfigured ? success("Configured") : error("Not configured")));
 
         if (cm.getLastError() != null) {
-            sender.sendMessage(ERROR + "Last Error: " + DIM + cm.getLastError());
+            sender.sendMessage(error("Last Error: ").append(dim(cm.getLastError())));
         }
 
-        sender.sendMessage(HEADER + "=========================================");
+        sender.sendMessage(header("========================================="));
     }
 
     private void showStats(CommandSender sender) {
-        sender.sendMessage(HEADER + "========== Oryn Tunnel Stats ==========");
+        sender.sendMessage(header("========== Oryn Tunnel Stats =========="));
 
         CloudflaredManager cm = cloudflaredManager();
         String localVersion = cm.getLocalVersion();
-        sender.sendMessage(INFO + "Version: " + ChatColor.WHITE + (localVersion != null ? localVersion : "N/A"));
+        sender.sendMessage(info("Version: ").append(Component.text(localVersion != null ? localVersion : "N/A", WHITE)));
 
         boolean tunnelRunning = cm.isRunning();
-        sender.sendMessage(INFO + "Status: " + (tunnelRunning ? SUCCESS + "Running" : ERROR + "Stopped"));
+        sender.sendMessage(info("Status: ").append(tunnelRunning ? success("Running") : error("Stopped")));
 
         if (tunnelRunning) {
-            sender.sendMessage(INFO + "Connected: " + (cm.isConnected() ? SUCCESS + "Yes" : WARNING + "Waiting..."));
-            sender.sendMessage(INFO + "Uptime: " + ChatColor.WHITE + cm.getUptimeFormatted());
-            sender.sendMessage(INFO + "PID: " + ChatColor.WHITE + cm.getProcess().pid());
+            sender.sendMessage(info("Connected: ").append(cm.isConnected() ? success("Yes") : warning("Waiting...")));
+            sender.sendMessage(info("Uptime: ").append(Component.text(cm.getUptimeFormatted(), WHITE)));
+            Process process = cm.getProcess();
+            if (process != null) {
+                sender.sendMessage(info("PID: ").append(Component.text(process.pid(), WHITE)));
+            }
         }
 
-        sender.sendMessage(INFO + "Total Restarts: " + ChatColor.WHITE + cm.getTotalRestarts());
+        sender.sendMessage(info("Total Restarts: ").append(Component.text(cm.getTotalRestarts(), WHITE)));
 
         if (cm.getRetryCount() > 0) {
-            sender.sendMessage(INFO + "Current Retry: " + WARNING + cm.getRetryCount() + "/" + configManager().getMaxRetries());
+            sender.sendMessage(info("Current Retry: ").append(warning(cm.getRetryCount() + "/" + configManager().getMaxRetries())));
         }
 
-        sender.sendMessage(INFO + "Health Check: " + ChatColor.WHITE + (healthChecker().isEnabled() ? SUCCESS + "Active" : DIM + "Inactive"));
-        sender.sendMessage(INFO + "Health Interval: " + ChatColor.WHITE + configManager().getHealthCheckInterval() + "s");
-        sender.sendMessage(INFO + "Auto-update: " + ChatColor.WHITE + (configManager().isAutoUpdate() ? "Enabled" : "Disabled"));
+        sender.sendMessage(info("Health Check: ").append(Component.text(healthChecker().isEnabled() ? "Active" : "Inactive", WHITE)));
+        sender.sendMessage(info("Health Interval: ").append(Component.text(configManager().getHealthCheckInterval() + "s", WHITE)));
+        sender.sendMessage(info("Auto-update: ").append(Component.text(configManager().isAutoUpdate() ? "Enabled" : "Disabled", WHITE)));
 
         String pinnedVersion = configManager().getCloudflaredVersion();
         if (pinnedVersion != null) {
-            sender.sendMessage(INFO + "Pinned Version: " + ChatColor.WHITE + pinnedVersion);
+            sender.sendMessage(info("Pinned Version: ").append(Component.text(pinnedVersion, WHITE)));
         }
 
-        sender.sendMessage(HEADER + "=========================================");
+        sender.sendMessage(header("========================================="));
     }
 
     private void startTunnel(CommandSender sender) {
         CloudflaredManager cm = cloudflaredManager();
         if (cm.isRunning()) {
-            sender.sendMessage(PREFIX + WARNING + "Tunnel is already running!");
+            sender.sendMessage(prefix().append(warning("Tunnel is already running!")));
             return;
         }
 
         String token = configManager().getToken();
         if (token == null || token.isBlank()) {
-            sender.sendMessage(PREFIX + ERROR + "Token is not configured! Edit config.yml");
+            sender.sendMessage(prefix().append(error("Token is not configured! Edit config.yml")));
             return;
         }
 
         if (!cm.isBinaryExists()) {
-            sender.sendMessage(PREFIX + WARNING + "Binary not found, downloading...");
+            sender.sendMessage(prefix().append(warning("Binary not found, downloading...")));
             cm.setDownloadCallback(new CloudflaredManager.DownloadCallback() {
                 @Override
                 public void onProgress(int percent, long bytesDownloaded, long totalBytes) {
-                    sendSafe(sender, PREFIX + INFO + "Download: " + percent + "% (" + formatBytes(bytesDownloaded) + "/" + formatBytes(totalBytes) + ")");
+                    sendSafe(sender, prefix().append(info("Download: " + percent + "% (" + formatBytes(bytesDownloaded) + "/" + formatBytes(totalBytes) + ")")));
                 }
 
                 @Override
                 public void onComplete(boolean success) {
                     if (success) {
-                        sendSafe(sender, PREFIX + SUCCESS + "Download complete! Starting tunnel...");
+                        sendSafe(sender, prefix().append(success("Download complete! Starting tunnel...")));
                         plugin.getServer().getScheduler().runTask(plugin, () -> {
                             cm.resetAutoRestart();
                             cm.startTunnel(token);
                             healthChecker().start();
-                            sendSafe(sender, PREFIX + SUCCESS + "Tunnel started!");
+                            sendSafe(sender, prefix().append(success("Tunnel started!")));
                         });
                     } else {
-                        sendSafe(sender, PREFIX + ERROR + "Failed to download cloudflared!");
+                        sendSafe(sender, prefix().append(error("Failed to download cloudflared!")));
                     }
                 }
             });
@@ -228,45 +268,45 @@ public class TunnelCommand implements CommandExecutor, TabCompleter {
         cm.resetAutoRestart();
         cm.startTunnel(token);
         healthChecker().start();
-        sender.sendMessage(PREFIX + SUCCESS + "Tunnel started!");
+        sender.sendMessage(prefix().append(success("Tunnel started!")));
     }
 
     private void stopTunnel(CommandSender sender) {
         if (!cloudflaredManager().isRunning()) {
-            sender.sendMessage(PREFIX + WARNING + "Tunnel is not running!");
+            sender.sendMessage(prefix().append(warning("Tunnel is not running!")));
             return;
         }
 
         tunnelManager.stopTunnel();
-        sender.sendMessage(PREFIX + SUCCESS + "Tunnel stopped!");
+        sender.sendMessage(prefix().append(success("Tunnel stopped!")));
     }
 
     private void restartTunnel(CommandSender sender) {
         CloudflaredManager cm = cloudflaredManager();
         if (!cm.isRunning()) {
-            sender.sendMessage(PREFIX + WARNING + "Tunnel is not running! Use start");
+            sender.sendMessage(prefix().append(warning("Tunnel is not running! Use start")));
             return;
         }
 
         String token = configManager().getToken();
         if (token == null || token.isBlank()) {
-            sender.sendMessage(PREFIX + ERROR + "Token is not configured!");
+            sender.sendMessage(prefix().append(error("Token is not configured!")));
             return;
         }
 
-        sender.sendMessage(PREFIX + INFO + "Restarting tunnel...");
+        sender.sendMessage(prefix().append(info("Restarting tunnel...")));
         cm.stopTunnel();
         cm.resetAutoRestart();
 
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
             cm.startTunnel(token);
             healthChecker().start();
-            sender.sendMessage(PREFIX + SUCCESS + "Tunnel restarted!");
+            sender.sendMessage(prefix().append(success("Tunnel restarted!")));
         }, 20L);
     }
 
     private void checkUpdate(CommandSender sender) {
-        sender.sendMessage(PREFIX + INFO + "Checking for updates...");
+        sender.sendMessage(prefix().append(info("Checking for updates...")));
 
         plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
             CloudflaredManager cm = cloudflaredManager();
@@ -274,30 +314,30 @@ public class TunnelCommand implements CommandExecutor, TabCompleter {
             String latestVersion = cm.getLatestVersion();
 
             if (latestVersion == null) {
-                sendSafe(sender, PREFIX + ERROR + "Could not fetch latest version from GitHub");
+                sendSafe(sender, prefix().append(error("Could not fetch latest version from GitHub")));
                 return;
             }
 
             if (latestVersion.equals(currentVersion)) {
-                sendSafe(sender, PREFIX + SUCCESS + "Cloudflared is up to date (" + currentVersion + ")");
+                sendSafe(sender, prefix().append(success("Cloudflared is up to date (" + currentVersion + ")")));
                 return;
             }
 
-            sendSafe(sender, PREFIX + INFO + "New version available: " + latestVersion + " (current: " + currentVersion + ")");
-            sendSafe(sender, PREFIX + INFO + "Downloading...");
+            sendSafe(sender, prefix().append(info("New version available: " + latestVersion + " (current: " + currentVersion + ")")));
+            sendSafe(sender, prefix().append(info("Downloading...")));
 
             cm.setDownloadCallback(new CloudflaredManager.DownloadCallback() {
                 @Override
                 public void onProgress(int percent, long bytesDownloaded, long totalBytes) {
-                    sendSafe(sender, PREFIX + INFO + "Download: " + percent + "% (" + formatBytes(bytesDownloaded) + "/" + formatBytes(totalBytes) + ")");
+                    sendSafe(sender, prefix().append(info("Download: " + percent + "% (" + formatBytes(bytesDownloaded) + "/" + formatBytes(totalBytes) + ")")));
                 }
 
                 @Override
                 public void onComplete(boolean success) {
                     if (success) {
-                        sendSafe(sender, PREFIX + SUCCESS + "Update complete! Restart tunnel to use new version.");
+                        sendSafe(sender, prefix().append(success("Update complete! Restart tunnel to use new version.")));
                     } else {
-                        sendSafe(sender, PREFIX + ERROR + "Update failed!");
+                        sendSafe(sender, prefix().append(error("Update failed!")));
                     }
                 }
             });
@@ -308,24 +348,24 @@ public class TunnelCommand implements CommandExecutor, TabCompleter {
 
     private void reloadConfig(CommandSender sender) {
         tunnelManager.reloadConfig();
-        sender.sendMessage(PREFIX + SUCCESS + "Configuration reloaded!");
+        sender.sendMessage(prefix().append(success("Configuration reloaded!")));
     }
 
     private void showHelp(CommandSender sender) {
-        sender.sendMessage(HEADER + "========== Oryn Tunnel Commands ==========");
-        sender.sendMessage(INFO + "/otunnel " + DIM + "- Open GUI");
-        sender.sendMessage(INFO + "/otunnel status " + DIM + "- Check tunnel status");
-        sender.sendMessage(INFO + "/otunnel stats " + DIM + "- Show detailed statistics");
-        sender.sendMessage(INFO + "/otunnel start " + DIM + "- Start tunnel");
-        sender.sendMessage(INFO + "/otunnel stop " + DIM + "- Stop tunnel");
-        sender.sendMessage(INFO + "/otunnel restart " + DIM + "- Restart tunnel");
-        sender.sendMessage(INFO + "/otunnel update " + DIM + "- Check and update cloudflared");
-        sender.sendMessage(INFO + "/otunnel reload " + DIM + "- Reload configuration");
-        sender.sendMessage(INFO + "/otunnel help " + DIM + "- Show this help");
-        sender.sendMessage(HEADER + "===========================================");
+        sender.sendMessage(header("========== Oryn Tunnel Commands =========="));
+        sender.sendMessage(info("/otunnel ").append(dim("- Open GUI")));
+        sender.sendMessage(info("/otunnel status ").append(dim("- Check tunnel status")));
+        sender.sendMessage(info("/otunnel stats ").append(dim("- Show detailed statistics")));
+        sender.sendMessage(info("/otunnel start ").append(dim("- Start tunnel")));
+        sender.sendMessage(info("/otunnel stop ").append(dim("- Stop tunnel")));
+        sender.sendMessage(info("/otunnel restart ").append(dim("- Restart tunnel")));
+        sender.sendMessage(info("/otunnel update ").append(dim("- Check and update cloudflared")));
+        sender.sendMessage(info("/otunnel reload ").append(dim("- Reload configuration")));
+        sender.sendMessage(info("/otunnel help ").append(dim("- Show this help")));
+        sender.sendMessage(header("==========================================="));
     }
 
-    private void sendSafe(CommandSender sender, String message) {
+    private void sendSafe(CommandSender sender, Component message) {
         if (sender instanceof Player player) {
             if (player.isOnline()) {
                 player.sendMessage(message);

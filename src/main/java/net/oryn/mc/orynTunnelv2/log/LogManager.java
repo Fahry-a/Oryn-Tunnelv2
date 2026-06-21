@@ -15,6 +15,17 @@ import java.time.format.DateTimeFormatter;
 import java.util.logging.Logger;
 import java.util.zip.GZIPOutputStream;
 
+/**
+ * Manages cloudflared tunnel log files with size-based rotation and archival.
+ *
+ * <p>Features:</p>
+ * <ul>
+ *   <li>Timestamped log entries</li>
+ *   <li>Size-based rotation (configurable via {@code log-max-size})</li>
+ *   <li>Tar+GZIP compression for archived logs</li>
+ *   <li>Graceful shutdown archival on server stop</li>
+ * </ul>
+ */
 public class LogManager {
 
     private final Logger logger;
@@ -68,6 +79,10 @@ public class LogManager {
         }
     }
 
+    /**
+     * Rotate the current log file when it exceeds {@code logMaxSize}.
+     * Compresses the old log to tar+gzip and starts a fresh log file.
+     */
     private void rotate() {
         close();
 
@@ -76,55 +91,14 @@ public class LogManager {
             return;
         }
 
-        String timestamp = LocalDateTime.now().format(ARCHIVE_FORMAT);
-        File archiveDir = new File(logsDir, "archive");
-        if (!archiveDir.exists() && !archiveDir.mkdirs()) {
-            logger.warning("Failed to create archive directory");
-            init();
-            return;
-        }
-
-        String archiveName = "cloudflared-" + timestamp + ".tar.gz";
-        File archiveFile = new File(archiveDir, archiveName);
-
-        try (FileInputStream fis = new FileInputStream(logFile);
-             BufferedInputStream bis = new BufferedInputStream(fis);
-             FileOutputStream fos = new FileOutputStream(archiveFile);
-             GZIPOutputStream gzipOut = new GZIPOutputStream(fos);
-             TarArchiveOutputStream tarOut = new TarArchiveOutputStream(gzipOut)) {
-
-            TarArchiveEntry entry = new TarArchiveEntry(logFile.getName());
-            entry.setSize(logFile.length());
-            tarOut.putArchiveEntry(entry);
-
-            byte[] buffer = new byte[8192];
-            int len;
-            while ((len = bis.read(buffer)) > 0) {
-                tarOut.write(buffer, 0, len);
-            }
-
-            tarOut.closeArchiveEntry();
-
-            if (!logFile.delete()) {
-                logger.warning("Failed to delete log file after rotation");
-            }
-
-            logger.info("Log rotated: " + archiveName);
-
-        } catch (IOException e) {
-            logger.warning("Failed to rotate log: " + e.getMessage());
-        }
-
+        compressAndArchive("rotate");
         init();
     }
 
-    public void close() {
-        if (logWriter != null) {
-            logWriter.close();
-            logWriter = null;
-        }
-    }
-
+    /**
+     * Archive the current log file on server shutdown.
+     * Compresses the log to tar+gzip for permanent storage.
+     */
     public void archive() {
         close();
 
@@ -132,13 +106,24 @@ public class LogManager {
             return;
         }
 
-        String timestamp = LocalDateTime.now().format(ARCHIVE_FORMAT);
+        compressAndArchive("archive");
+        // Do NOT re-init — server is shutting down
+    }
+
+    /**
+     * Core compression logic shared by rotate() and archive().
+     * Compresses the current log file to tar+gzip format.
+     *
+     * @param reason the reason for compression ("rotate" or "archive")
+     */
+    private void compressAndArchive(String reason) {
         File archiveDir = new File(logsDir, "archive");
         if (!archiveDir.exists() && !archiveDir.mkdirs()) {
             logger.warning("Failed to create archive directory");
             return;
         }
 
+        String timestamp = LocalDateTime.now().format(ARCHIVE_FORMAT);
         String archiveName = "cloudflared-" + timestamp + ".tar.gz";
         File archiveFile = new File(archiveDir, archiveName);
 
@@ -161,15 +146,20 @@ public class LogManager {
             tarOut.closeArchiveEntry();
 
             if (!logFile.delete()) {
-                logger.warning("Failed to delete log file after archiving");
+                logger.warning("Failed to delete log file after " + reason);
             }
 
-            logger.info("Log archived: " + archiveName);
+            logger.info("Log " + reason + "d: " + archiveName);
 
         } catch (IOException e) {
-            logger.warning("Failed to archive log: " + e.getMessage());
+            logger.warning("Failed to " + reason + " log: " + e.getMessage());
         }
+    }
 
-        init();
+    public void close() {
+        if (logWriter != null) {
+            logWriter.close();
+            logWriter = null;
+        }
     }
 }

@@ -1,10 +1,13 @@
 package net.oryn.mc.orynTunnelv2.gui;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import net.oryn.mc.orynTunnelv2.config.ConfigManager;
 import net.oryn.mc.orynTunnelv2.tunnel.CloudflaredManager;
 
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
@@ -13,25 +16,27 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
+/**
+ * Creates and manages the tunnel management GUI.
+ * Uses Adventure Component API for modern text rendering.
+ */
 public class TunnelGUI {
 
     private final JavaPlugin plugin;
     private final CloudflaredManager cloudflaredManager;
     private final ConfigManager configManager;
 
-    private static final String TITLE_PREFIX = ChatColor.GOLD + "" + ChatColor.BOLD;
-    private static final ChatColor GOLD = ChatColor.GOLD;
-    private static final ChatColor GREEN = ChatColor.GREEN;
-    private static final ChatColor RED = ChatColor.RED;
-    private static final ChatColor YELLOW = ChatColor.YELLOW;
-    private static final ChatColor AQUA = ChatColor.AQUA;
-    private static final ChatColor GRAY = ChatColor.GRAY;
-    private static final ChatColor WHITE = ChatColor.WHITE;
-    private static final ChatColor DARK_GRAY = ChatColor.DARK_GRAY;
-    private static final ChatColor BLACK = ChatColor.BLACK;
+    private static final TextColor GOLD = NamedTextColor.GOLD;
+    private static final TextColor GREEN = NamedTextColor.GREEN;
+    private static final TextColor RED = NamedTextColor.RED;
+    private static final TextColor YELLOW = NamedTextColor.YELLOW;
+    private static final TextColor AQUA = NamedTextColor.AQUA;
+    private static final TextColor GRAY = NamedTextColor.GRAY;
+    private static final TextColor WHITE = NamedTextColor.WHITE;
+
+    private static final String TITLE_PREFIX = "\u00A7" + "6\u00A7" + "l";
 
     public static final String MAIN_MENU_TITLE = TITLE_PREFIX + "Oryn Tunnel v2";
     public static final String STATUS_TITLE = TITLE_PREFIX + "Tunnel Status";
@@ -104,7 +109,7 @@ public class TunnelGUI {
         boolean tunnelRunning = cloudflaredManager.isRunning();
         boolean tokenConfigured = configManager.isTokenConfigured();
 
-        gui.setItem(13, createItem(Material.NETHER_STAR, GOLD + "" + ChatColor.BOLD + "Oryn Tunnel Status",
+        gui.setItem(13, createItem(Material.NETHER_STAR, GOLD + "\u00A7lOryn Tunnel Status",
             "",
             AQUA + "Version: " + WHITE + (localVersion != null ? localVersion : "Not installed"),
             AQUA + "Binary: " + (binaryExists ? GREEN + "Found" : RED + "Not found"),
@@ -149,11 +154,11 @@ public class TunnelGUI {
         String localVersion = cloudflaredManager.getLocalVersion();
         boolean tunnelRunning = cloudflaredManager.isRunning();
 
-        gui.setItem(13, createItem(Material.NETHER_STAR, GOLD + "" + ChatColor.BOLD + "Tunnel Statistics",
+        gui.setItem(13, createItem(Material.NETHER_STAR, GOLD + "\u00A7lTunnel Statistics",
             "",
             AQUA + "Version: " + WHITE + (localVersion != null ? localVersion : "N/A"),
             AQUA + "Status: " + (tunnelRunning ? GREEN + "Running" : RED + "Stopped"),
-            tunnelRunning ? AQUA + "PID: " + WHITE + cloudflaredManager.getProcess().pid() : "",
+            tunnelRunning && cloudflaredManager.getProcess() != null ? AQUA + "PID: " + WHITE + cloudflaredManager.getProcess().pid() : "",
             tunnelRunning ? AQUA + "Uptime: " + WHITE + cloudflaredManager.getUptimeFormatted() : "",
             "",
             AQUA + "Total Restarts: " + WHITE + cloudflaredManager.getTotalRestarts(),
@@ -326,7 +331,7 @@ public class TunnelGUI {
             GRAY + "config.yml"
         ));
 
-        gui.setItem(22, createItem(Material.BOOK, GOLD + "" + ChatColor.BOLD + "Tips",
+        gui.setItem(22, createItem(Material.BOOK, GOLD + "\u00A7lTips",
             "",
             WHITE + "• Hover over items for details",
             WHITE + "• Click items to perform actions",
