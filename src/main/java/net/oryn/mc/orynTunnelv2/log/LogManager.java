@@ -1,9 +1,9 @@
 package net.oryn.mc.orynTunnelv2.log;
 
-import com.github.luben.zstd.ZstdOutputStream;
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 
 import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -13,6 +13,7 @@ import java.io.PrintWriter;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.logging.Logger;
+import java.util.zip.GZIPOutputStream;
 
 public class LogManager {
 
@@ -83,20 +84,26 @@ public class LogManager {
             return;
         }
 
-        String archiveName = "cloudflared-" + timestamp + ".zst";
+        String archiveName = "cloudflared-" + timestamp + ".tar.gz";
         File archiveFile = new File(archiveDir, archiveName);
 
         try (FileInputStream fis = new FileInputStream(logFile);
              BufferedInputStream bis = new BufferedInputStream(fis);
              FileOutputStream fos = new FileOutputStream(archiveFile);
-             BufferedOutputStream bos = new BufferedOutputStream(fos);
-             ZstdOutputStream zstdOut = new ZstdOutputStream(bos)) {
+             GZIPOutputStream gzipOut = new GZIPOutputStream(fos);
+             TarArchiveOutputStream tarOut = new TarArchiveOutputStream(gzipOut)) {
+
+            TarArchiveEntry entry = new TarArchiveEntry(logFile.getName());
+            entry.setSize(logFile.length());
+            tarOut.putArchiveEntry(entry);
 
             byte[] buffer = new byte[8192];
             int len;
             while ((len = bis.read(buffer)) > 0) {
-                zstdOut.write(buffer, 0, len);
+                tarOut.write(buffer, 0, len);
             }
+
+            tarOut.closeArchiveEntry();
 
             if (!logFile.delete()) {
                 logger.warning("Failed to delete log file after rotation");
@@ -132,20 +139,26 @@ public class LogManager {
             return;
         }
 
-        String archiveName = "cloudflared-" + timestamp + ".zst";
+        String archiveName = "cloudflared-" + timestamp + ".tar.gz";
         File archiveFile = new File(archiveDir, archiveName);
 
         try (FileInputStream fis = new FileInputStream(logFile);
              BufferedInputStream bis = new BufferedInputStream(fis);
              FileOutputStream fos = new FileOutputStream(archiveFile);
-             BufferedOutputStream bos = new BufferedOutputStream(fos);
-             ZstdOutputStream zstdOut = new ZstdOutputStream(bos)) {
+             GZIPOutputStream gzipOut = new GZIPOutputStream(fos);
+             TarArchiveOutputStream tarOut = new TarArchiveOutputStream(gzipOut)) {
+
+            TarArchiveEntry entry = new TarArchiveEntry(logFile.getName());
+            entry.setSize(logFile.length());
+            tarOut.putArchiveEntry(entry);
 
             byte[] buffer = new byte[8192];
             int len;
             while ((len = bis.read(buffer)) > 0) {
-                zstdOut.write(buffer, 0, len);
+                tarOut.write(buffer, 0, len);
             }
+
+            tarOut.closeArchiveEntry();
 
             if (!logFile.delete()) {
                 logger.warning("Failed to delete log file after archiving");

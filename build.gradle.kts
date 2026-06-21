@@ -14,7 +14,7 @@ repositories {
 dependencies {
     compileOnly("io.papermc.paper:paper-api:1.21.1-R0.1-SNAPSHOT")
     compileOnly("net.oryn.mc:orynplugins:1.2.0")
-    implementation("com.github.luben:zstd-jni:1.5.7-11")
+    implementation("org.apache.commons:commons-compress:1.27.1")
 }
 
 java {
