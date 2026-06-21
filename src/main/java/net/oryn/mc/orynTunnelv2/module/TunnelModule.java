@@ -20,7 +20,7 @@ import java.util.List;
 
 @ModuleInfo(
     name = "tunnel",
-    version = "1.2.0",
+    version = "1.2.1",
     description = "Cloudflare Tunnel plugin - manages cloudflared binary and tunnel connections",
     author = "Fahry-a"
 )
